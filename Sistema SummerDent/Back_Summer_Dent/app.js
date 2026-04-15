@@ -1,26 +1,52 @@
-const express = require('express')
-const cors = require('cors')
-require('dotenv').config()
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
-const app = express()
+import { dbConnectSupabase, sequelize } from './src/configuracionesDB/database.js';
+import authRoute from './src/routes/authRoute.js';
+import productoRoute from './src/routes/productoRoute.js';
+import doctorRoute from './src/routes/doctorRoute.js';
+import pacienteRoute from './src/routes/pacienteRoute.js';
 
-// Middlewares
-app.use(cors({
-    origin: process.env.FRONTEND_URL,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}))
+dotenv.config();
 
-app.use(express.json())
+const app = express();
 
-// Ruta de prueba
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL || '*',
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    })
+);
+
+app.use(express.json());
+
 app.get('/', (req, res) => {
-    res.json({ message: 'Summer Dent API funcionando correctamente' })
-})
+    res.json({ message: 'Summer Dent API funcionando correctamente' });
+});
 
-const PORT = process.env.PORT || 5000
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`)
-})
+app.use('/api/auth', authRoute);
+app.use('/api/productos', productoRoute);
+app.use('/api/doctores', doctorRoute);
+app.use('/api/pacientes', pacienteRoute);
 
-module.exports = app
+const PORT = Number(process.env.PORT || 5000);
+
+const startServer = async () => {
+    try {
+        await dbConnectSupabase();
+        await sequelize.sync();
+
+        app.listen(PORT, () => {
+            console.log(`Servidor corriendo en el puerto ${PORT}`);
+        });
+    } catch (error) {
+        console.error('No se pudo iniciar el servidor:', error.message || error);
+        process.exit(1);
+    }
+};
+
+startServer();
+
+export default app;
