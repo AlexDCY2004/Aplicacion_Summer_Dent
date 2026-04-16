@@ -35,8 +35,14 @@ const PORT = Number(process.env.PORT || 5000);
 
 const startServer = async () => {
     try {
-        await dbConnectSupabase();
-        await sequelize.sync();
+        // Usar Supabase (PostgREST) para las operaciones; Sequelize es opcional.
+        // Si necesitas Sequelize, pon USE_SEQUELIZE=true en tu .env
+        if (process.env.USE_SEQUELIZE === 'true') {
+            await dbConnectSupabase();
+            await sequelize.sync();
+        } else {
+            console.log('Iniciando sin Sequelize (usando Supabase).');
+        }
 
         app.listen(PORT, () => {
             console.log(`Servidor corriendo en el puerto ${PORT}`);

@@ -1,60 +1,50 @@
-import Producto from '../models/producto.js';
+import { supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
 
 export const crearProductoController = async (req, res) => {
     try {
         const { nombre, descripcion, categoria } = req.body;
 
-        if (!nombre || !String(nombre).trim()) {
-            return res.status(400).json({
-                error: 'El nombre del producto es obligatorio'
-            });
-        }
+        if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto es obligatorio' });
 
-        const nuevoProducto = await Producto.create({
-            nombre: String(nombre).trim(),
-            descripcion: descripcion ? String(descripcion).trim() : null,
-            categoria: categoria ? String(categoria).trim() : null
-        });
+        const { data, error } = await supabaseAdmin
+            .from('producto')
+            .insert([
+                {
+                    nombre: String(nombre).trim(),
+                    descripcion: descripcion ? String(descripcion).trim() : null,
+                    categoria: categoria ? String(categoria).trim() : null
+                }
+            ])
+            .select()
+            .maybeSingle();
 
-        return res.status(201).json({
-            mensaje: 'Producto creado exitosamente',
-            producto: nuevoProducto
-        });
+        if (error) return res.status(400).json({ error: error.message || error });
+
+        return res.status(201).json({ mensaje: 'Producto creado exitosamente', producto: data });
     } catch (error) {
-        if (error?.name === 'SequelizeValidationError') {
-            const detalles = error.errors?.map((e) => e.message).join('; ');
-            return res.status(400).json({ error: detalles || 'Error de validación' });
-        }
-
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message || error });
     }
 };
 
 export const obtenerProductosController = async (_req, res) => {
     try {
-        const productos = await Producto.findAll({
-            order: [['id', 'DESC']]
-        });
-
-        return res.json(productos);
+        const { data, error } = await supabaseAdmin.from('producto').select('*').order('id', { ascending: false });
+        if (error) return res.status(500).json({ error: error.message || error });
+        return res.json(data);
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message || error });
     }
 };
 
 export const obtenerProductoPorIdController = async (req, res) => {
     try {
         const { id } = req.params;
-
-        const producto = await Producto.findByPk(id);
-
-        if (!producto) {
-            return res.status(404).json({ error: 'Producto no encontrado' });
-        }
-
-        return res.json(producto);
+        const { data, error } = await supabaseAdmin.from('producto').select('*').eq('id', id).maybeSingle();
+        if (error) return res.status(500).json({ error: error.message || error });
+        if (!data) return res.status(404).json({ error: 'Producto no encontrado' });
+        return res.json(data);
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message || error });
     }
 };
 
@@ -63,58 +53,38 @@ export const actualizarProductoController = async (req, res) => {
         const { id } = req.params;
         const { nombre, descripcion, categoria } = req.body;
 
-        const producto = await Producto.findByPk(id);
+        const { data: existing, error: fetchErr } = await supabaseAdmin.from('producto').select('id').eq('id', id).maybeSingle();
+        if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
+        if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
-        if (!producto) {
-            return res.status(404).json({ error: 'Producto no encontrado' });
-        }
+        if (nombre !== undefined && !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto no puede estar vacío' });
 
-        if (nombre !== undefined && !String(nombre).trim()) {
-            return res.status(400).json({
-                error: 'El nombre del producto no puede estar vacío'
-            });
-        }
+        const updates = {};
+        if (nombre !== undefined) updates.nombre = String(nombre).trim();
+        if (descripcion !== undefined) updates.descripcion = descripcion ? String(descripcion).trim() : null;
+        if (categoria !== undefined) updates.categoria = categoria ? String(categoria).trim() : null;
 
-        await producto.update({
-            nombre: nombre !== undefined ? String(nombre).trim() : producto.nombre,
-            descripcion:
-                descripcion !== undefined
-                    ? (descripcion ? String(descripcion).trim() : null)
-                    : producto.descripcion,
-            categoria:
-                categoria !== undefined
-                    ? (categoria ? String(categoria).trim() : null)
-                    : producto.categoria
-        });
+        const { data, error } = await supabaseAdmin.from('producto').update(updates).eq('id', id).select().maybeSingle();
+        if (error) return res.status(400).json({ error: error.message || error });
 
-        return res.json({
-            mensaje: 'Producto actualizado exitosamente',
-            producto
-        });
+        return res.json({ mensaje: 'Producto actualizado exitosamente', producto: data });
     } catch (error) {
-        if (error?.name === 'SequelizeValidationError') {
-            const detalles = error.errors?.map((e) => e.message).join('; ');
-            return res.status(400).json({ error: detalles || 'Error de validación' });
-        }
-
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message || error });
     }
 };
 
 export const eliminarProductoController = async (req, res) => {
     try {
         const { id } = req.params;
+        const { data: existing, error: fetchErr } = await supabaseAdmin.from('producto').select('id').eq('id', id).maybeSingle();
+        if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
+        if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
-        const producto = await Producto.findByPk(id);
-
-        if (!producto) {
-            return res.status(404).json({ error: 'Producto no encontrado' });
-        }
-
-        await producto.destroy();
+        const { error } = await supabaseAdmin.from('producto').delete().eq('id', id);
+        if (error) return res.status(500).json({ error: error.message || error });
 
         return res.json({ mensaje: 'Producto eliminado exitosamente' });
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message || error });
     }
 };
