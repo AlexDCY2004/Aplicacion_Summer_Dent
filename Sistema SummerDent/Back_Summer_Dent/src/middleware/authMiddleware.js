@@ -1,3 +1,4 @@
+
 import jwt from 'jsonwebtoken';
 
 const jwtSecret = process.env.SUPABASE_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
