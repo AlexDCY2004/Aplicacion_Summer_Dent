@@ -48,6 +48,10 @@ export const Paciente = sequelize.define(
                 isEmail: { msg: 'El formato del correo no es válido' }
             }
         },
+        direccion: {
+            type: DataTypes.STRING(255),
+            allowNull: true
+        },
         created_at: {
             type: DataTypes.DATE,
             allowNull: false,

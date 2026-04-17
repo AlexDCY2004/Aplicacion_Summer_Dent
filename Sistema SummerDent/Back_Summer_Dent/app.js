@@ -7,6 +7,7 @@ import authRoute from './src/routes/authRoute.js';
 import productoRoute from './src/routes/productoRoute.js';
 import doctorRoute from './src/routes/doctorRoute.js';
 import pacienteRoute from './src/routes/pacienteRoute.js';
+import tratamientoRoute from './src/routes/tratamientoRoute.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/productos', productoRoute);
 app.use('/api/doctores', doctorRoute);
 app.use('/api/pacientes', pacienteRoute);
+app.use('/api/tratamientos', tratamientoRoute);
 
 const PORT = Number(process.env.PORT || 5000);
 

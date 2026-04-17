@@ -6,7 +6,7 @@ export const crearPacienteController = async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
 
     const supabaseUser = getSupabaseClientWithToken(token);
-    const { id_cedula, nombre, apellido, fecha_nacimiento, telefono, correo } = req.body;
+    const { id_cedula, nombre, apellido, fecha_nacimiento, telefono, correo, direccion } = req.body;
 
     if (!id_cedula || !String(id_cedula).trim()) return res.status(400).json({ error: 'La cédula es obligatoria' });
     if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
@@ -31,7 +31,8 @@ export const crearPacienteController = async (req, res) => {
           apellido: String(apellido).trim(),
           fecha_nacimiento: fecha_nacimiento ? String(fecha_nacimiento) : null,
           telefono: telefono ? String(telefono).trim() : null,
-          correo: correo ? String(correo).trim() : null
+          correo: correo ? String(correo).trim() : null,
+          direccion: direccion ? String(direccion).trim() : null
         }
       ])
       .select()
@@ -82,7 +83,7 @@ export const actualizarPacienteController = async (req, res) => {
 
     const supabaseUser = getSupabaseClientWithToken(token);
     const { id } = req.params;
-    const { nombre, apellido, fecha_nacimiento, telefono, correo } = req.body;
+    const { nombre, apellido, fecha_nacimiento, telefono, correo, direccion } = req.body;
 
     const { data: existing, error: fetchErr } = await supabaseUser.from('paciente').select('id_cedula').eq('id_cedula', id).maybeSingle();
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
@@ -97,6 +98,7 @@ export const actualizarPacienteController = async (req, res) => {
     if (fecha_nacimiento !== undefined) updates.fecha_nacimiento = fecha_nacimiento ? String(fecha_nacimiento) : null;
     if (telefono !== undefined) updates.telefono = telefono ? String(telefono).trim() : null;
     if (correo !== undefined) updates.correo = correo ? String(correo).trim() : null;
+    if (direccion !== undefined) updates.direccion = direccion ? String(direccion).trim() : null;
 
     const { data, error } = await supabaseUser.from('paciente').update(updates).eq('id_cedula', id).select().maybeSingle();
     if (error) return res.status(400).json({ error: error.message || error });
