@@ -1,9 +1,14 @@
-import { supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
+import { getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
 
 const estadosPermitidos = ['disponible', 'no disponible', 'eventual'];
 
 export const crearDoctorController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { nombre, telefono, correo, especialidad, estado } = req.body;
 
         if (!nombre || !correo || !especialidad) {
@@ -14,7 +19,7 @@ export const crearDoctorController = async (req, res) => {
             return res.status(400).json({ error: 'Estado inválido. Debe ser: disponible, no disponible o eventual' });
         }
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabaseUser
             .from('doctor')
             .insert([
                 {
@@ -40,7 +45,11 @@ export const crearDoctorController = async (req, res) => {
 
 export const obtenerDoctoresController = async (_req, res) => {
     try {
-        const { data, error } = await supabaseAdmin
+        const token = ( (_req && _req.headers && _req.headers.authorization) || '' ).startsWith('Bearer ') ? ((_req.headers.authorization || '').replace('Bearer ', '').trim()) : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
+        const { data, error } = await supabaseUser
             .from('doctor')
             .select('*')
             .order('id', { ascending: false });
@@ -55,9 +64,13 @@ export const obtenerDoctoresController = async (_req, res) => {
 
 export const obtenerDoctorPorIdController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabaseUser
             .from('doctor')
             .select('*')
             .eq('id', id)
@@ -74,6 +87,10 @@ export const obtenerDoctorPorIdController = async (req, res) => {
 
 export const actualizarDoctorController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
         const { nombre, telefono, correo, especialidad, estado } = req.body;
 
@@ -90,7 +107,7 @@ export const actualizarDoctorController = async (req, res) => {
         if (especialidad !== undefined) updates.especialidad = String(especialidad).trim();
         if (estado !== undefined) updates.estado = String(estado).trim().toLowerCase();
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabaseUser
             .from('doctor')
             .update(updates)
             .eq('id', id)
@@ -108,9 +125,13 @@ export const actualizarDoctorController = async (req, res) => {
 
 export const eliminarDoctorController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
 
-        const { data: existing, error: fetchErr } = await supabaseAdmin
+        const { data: existing, error: fetchErr } = await supabaseUser
             .from('doctor')
             .select('id')
             .eq('id', id)
@@ -119,7 +140,7 @@ export const eliminarDoctorController = async (req, res) => {
         if (fetchErr) return res.status(500).json({ error: fetchErr.message });
         if (!existing) return res.status(404).json({ error: 'Doctor no encontrado' });
 
-        const { error } = await supabaseAdmin.from('doctor').delete().eq('id', id);
+        const { error } = await supabaseUser.from('doctor').delete().eq('id', id);
         if (error) return res.status(500).json({ error: error.message || error });
 
         return res.json({ mensaje: 'Doctor eliminado exitosamente' });

@@ -21,3 +21,17 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KE
 });
 
 export default supabase;
+
+// Devuelve un cliente Supabase configurado con el token JWT del usuario
+export const getSupabaseClientWithToken = (token) => {
+    const opts = {
+        auth: { persistSession: false }
+    };
+
+    // If token provided, set Authorization header so RLS uses the user's identity
+    if (token) {
+        opts.global = { headers: { Authorization: `Bearer ${token}` } };
+    }
+
+    return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, opts);
+};

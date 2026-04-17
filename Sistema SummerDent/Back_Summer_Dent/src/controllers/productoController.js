@@ -1,12 +1,16 @@
-import { supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
+import { getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
 
 export const crearProductoController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { nombre, descripcion, categoria } = req.body;
 
         if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto es obligatorio' });
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabaseUser
             .from('producto')
             .insert([
                 {
@@ -28,7 +32,11 @@ export const crearProductoController = async (req, res) => {
 
 export const obtenerProductosController = async (_req, res) => {
     try {
-        const { data, error } = await supabaseAdmin.from('producto').select('*').order('id', { ascending: false });
+        const token = ( (_req && _req.headers && _req.headers.authorization) || '' ).startsWith('Bearer ') ? ((_req.headers.authorization || '').replace('Bearer ', '').trim()) : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
+        const { data, error } = await supabaseUser.from('producto').select('*').order('id', { ascending: false });
         if (error) return res.status(500).json({ error: error.message || error });
         return res.json(data);
     } catch (error) {
@@ -38,8 +46,12 @@ export const obtenerProductosController = async (_req, res) => {
 
 export const obtenerProductoPorIdController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
-        const { data, error } = await supabaseAdmin.from('producto').select('*').eq('id', id).maybeSingle();
+        const { data, error } = await supabaseUser.from('producto').select('*').eq('id', id).maybeSingle();
         if (error) return res.status(500).json({ error: error.message || error });
         if (!data) return res.status(404).json({ error: 'Producto no encontrado' });
         return res.json(data);
@@ -50,10 +62,14 @@ export const obtenerProductoPorIdController = async (req, res) => {
 
 export const actualizarProductoController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
         const { nombre, descripcion, categoria } = req.body;
 
-        const { data: existing, error: fetchErr } = await supabaseAdmin.from('producto').select('id').eq('id', id).maybeSingle();
+        const { data: existing, error: fetchErr } = await supabaseUser.from('producto').select('id').eq('id', id).maybeSingle();
         if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
         if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
@@ -64,7 +80,7 @@ export const actualizarProductoController = async (req, res) => {
         if (descripcion !== undefined) updates.descripcion = descripcion ? String(descripcion).trim() : null;
         if (categoria !== undefined) updates.categoria = categoria ? String(categoria).trim() : null;
 
-        const { data, error } = await supabaseAdmin.from('producto').update(updates).eq('id', id).select().maybeSingle();
+        const { data, error } = await supabaseUser.from('producto').update(updates).eq('id', id).select().maybeSingle();
         if (error) return res.status(400).json({ error: error.message || error });
 
         return res.json({ mensaje: 'Producto actualizado exitosamente', producto: data });
@@ -75,12 +91,16 @@ export const actualizarProductoController = async (req, res) => {
 
 export const eliminarProductoController = async (req, res) => {
     try {
+        const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
+        if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+        const supabaseUser = getSupabaseClientWithToken(token);
+
         const { id } = req.params;
-        const { data: existing, error: fetchErr } = await supabaseAdmin.from('producto').select('id').eq('id', id).maybeSingle();
+        const { data: existing, error: fetchErr } = await supabaseUser.from('producto').select('id').eq('id', id).maybeSingle();
         if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
         if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
-        const { error } = await supabaseAdmin.from('producto').delete().eq('id', id);
+        const { error } = await supabaseUser.from('producto').delete().eq('id', id);
         if (error) return res.status(500).json({ error: error.message || error });
 
         return res.json({ mensaje: 'Producto eliminado exitosamente' });

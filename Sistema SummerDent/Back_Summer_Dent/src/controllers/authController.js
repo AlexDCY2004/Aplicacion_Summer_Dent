@@ -1,30 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Faltan SUPABASE_URL o SUPABASE_ANON_KEY en variables de entorno');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: false,
-        autoRefreshToken: false
-    }
-});
-
-const supabaseAdmin = createClient(
-    supabaseUrl,
-    supabaseServiceRoleKey || supabaseAnonKey,
-    {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false
-        }
-    }
-);
+import { supabase, supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
 
 const getAuthToken = (req) => {
     const header = req.headers.authorization || '';
@@ -53,11 +27,15 @@ export const loginController = async (req, res) => {
             });
         }
 
-        const { data: perfil } = await supabaseAdmin
+        const { data: perfil, error: perfilError } = await supabaseAdmin
             .from('perfil')
             .select('id, nombre, rol, created_at')
             .eq('id', data.user.id)
             .maybeSingle();
+
+        if (perfilError) {
+            console.warn('Error leyendo perfil en login:', perfilError.message || perfilError);
+        }
 
         return res.json({
             access_token: data.session.access_token,
@@ -66,7 +44,7 @@ export const loginController = async (req, res) => {
                 id: data.user.id,
                 email: data.user.email,
                 nombre: perfil?.nombre || data.user.user_metadata?.nombre || 'Usuario',
-                rol: perfil?.rol || 'cliente'
+                rol: perfil?.rol ?? null,
             }
         });
     } catch (error) {
@@ -101,18 +79,44 @@ export const registroController = async (req, res) => {
         });
 
         if (error) {
-            return res.status(400).json({
-                error: error.message
-            });
+            return res.status(400).json({ error: error.message });
         }
 
+        // Crear fila en `perfil` sin especificar `rol` para que la DB aplique el default (administrador si así lo configuraste)
+        try {
+            const userId = data.user?.id;
+            if (userId) {
+                await supabaseAdmin.from('perfil').insert([
+                    {
+                        id: userId,
+                        nombre: String(nombre).trim()
+                    }
+                ]);
+                // Leer perfil insertado para obtener el rol aplicado por la BD
+                try {
+                    const { data: insertedPerfil, error: insertedErr } = await supabaseAdmin
+                        .from('perfil')
+                        .select('rol')
+                        .eq('id', userId)
+                        .maybeSingle();
+
+                    if (insertedErr) console.warn('Error leyendo perfil tras insert:', insertedErr.message || insertedErr);
+                    else if (insertedPerfil) returnedRole = insertedPerfil.rol;
+                } catch (e) {
+                    console.warn('Error interno leyendo perfil tras insert:', e.message || e);
+                }
+            }
+        } catch (perfilErr) {
+            console.warn('No se pudo crear fila en perfil:', perfilErr?.message || perfilErr);
+        }
+        // Devolver rol leído si se pudo obtener
         return res.status(201).json({
             mensaje: 'Registro exitoso. Revisa tu correo para confirmar la cuenta si aplica.',
             usuario: {
                 id: data.user?.id,
                 email: data.user?.email,
                 nombre: String(nombre).trim(),
-                rol: 'cliente'
+                rol: typeof returnedRole !== 'undefined' ? returnedRole : null
             }
         });
     } catch (error) {
@@ -151,7 +155,7 @@ export const obtenerPerfilController = async (req, res) => {
             id: user.id,
             email: user.email,
             nombre: perfil?.nombre || user.user_metadata?.nombre || 'Usuario',
-            rol: perfil?.rol || 'cliente',
+            rol: perfil?.rol ?? null,
             created_at: perfil?.created_at
         });
     } catch (error) {
