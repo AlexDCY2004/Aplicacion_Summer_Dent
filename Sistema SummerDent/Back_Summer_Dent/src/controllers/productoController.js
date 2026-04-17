@@ -1,16 +1,40 @@
 import { getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
 
+const precioRegex = /^\d+$/;
+const stockRegex = /^\d+$/;
+
+const esPrecioSoloNumeros = (precio) => {
+    if (precio === undefined || precio === null || precio === '') return true;
+    return precioRegex.test(String(precio).trim());
+};
+
+const esStockSoloNumeros = (stock) => {
+    if (stock === undefined || stock === null || stock === '') return true;
+    return stockRegex.test(String(stock).trim());
+};
+
 export const crearProductoController = async (req, res) => {
     try {
         const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
         if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
         const supabaseUser = getSupabaseClientWithToken(token);
 
-        const { nombre, descripcion, categoria } = req.body;
+        const { nombre, descripcion, categoria, stock_producto, stock_minimo, precio } = req.body;
 
         if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto es obligatorio' });
+        if (!esPrecioSoloNumeros(precio)) return res.status(400).json({ error: 'precio debe contener solo numeros' });
+        if (!esStockSoloNumeros(stock_producto)) return res.status(400).json({ error: 'stock_producto debe contener solo numeros' });
+        if (!esStockSoloNumeros(stock_minimo)) return res.status(400).json({ error: 'stock_minimo debe contener solo numeros' });
 
-        const { data, error } = await supabaseUser
+        // Validar stocks si fueron proporcionados
+        const parsedStock = stock_producto !== undefined && stock_producto !== null ? Number(stock_producto) : null;
+        const parsedMin = stock_minimo !== undefined && stock_minimo !== null ? Number(stock_minimo) : null;
+
+        if (parsedStock !== null && (!Number.isFinite(parsedStock) || !Number.isInteger(parsedStock) || parsedStock < 0)) return res.status(400).json({ error: 'stock_producto debe ser un numero entero >= 0' });
+        if (parsedMin !== null && (!Number.isFinite(parsedMin) || !Number.isInteger(parsedMin) || parsedMin < 0)) return res.status(400).json({ error: 'stock_minimo debe ser un numero entero >= 0' });
+
+        // 1) Crear producto
+        const { data: productoData, error: productoError } = await supabaseUser
             .from('producto')
             .insert([
                 {
@@ -22,9 +46,38 @@ export const crearProductoController = async (req, res) => {
             .select()
             .maybeSingle();
 
-        if (error) return res.status(400).json({ error: error.message || error });
+        if (productoError) return res.status(400).json({ error: productoError.message || productoError });
+        if (!productoData || !productoData.id) return res.status(500).json({ error: 'No se pudo crear el producto' });
 
-        return res.status(201).json({ mensaje: 'Producto creado exitosamente', producto: data });
+        // Obtener id de perfil (usuario) desde el cliente supabase con token
+        let perfilId = null;
+        try {
+            const { data: userData } = await supabaseUser.auth.getUser();
+            if (userData && userData.user && userData.user.id) perfilId = userData.user.id;
+            else if (userData && userData.id) perfilId = userData.id; // fallback
+        } catch (e) {
+            // no crítico: si no podemos obtener usuario, dejamos perfilId = null
+            perfilId = null;
+        }
+
+        // 2) Crear inventario asociado (siempre se crea aunque stocks no se envíen: usa defaults)
+        const inventarioPayload = {
+            id_producto: productoData.id,
+            id_perfil: perfilId,
+            stock_producto: parsedStock !== null ? Math.floor(parsedStock) : 0,
+            stock_minimo: parsedMin !== null ? Math.floor(parsedMin) : 0,
+            fecha_actualizacion: new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+        };
+
+        const { data: invData, error: invError } = await supabaseUser.from('inventario').insert([inventarioPayload]).select().maybeSingle();
+
+        if (invError) {
+            // Rollback manual: eliminar el producto creado para evitar inconsistencia
+            await supabaseUser.from('producto').delete().eq('id', productoData.id);
+            return res.status(400).json({ error: invError.message || invError });
+        }
+
+        return res.status(201).json({ mensaje: 'Producto e inventario creados', producto: productoData, inventario: invData });
     } catch (error) {
         return res.status(500).json({ error: error.message || error });
     }
@@ -67,13 +120,14 @@ export const actualizarProductoController = async (req, res) => {
         const supabaseUser = getSupabaseClientWithToken(token);
 
         const { id } = req.params;
-        const { nombre, descripcion, categoria } = req.body;
+        const { nombre, descripcion, categoria, precio } = req.body;
 
         const { data: existing, error: fetchErr } = await supabaseUser.from('producto').select('id').eq('id', id).maybeSingle();
         if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
         if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
         if (nombre !== undefined && !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto no puede estar vacío' });
+        if (!esPrecioSoloNumeros(precio)) return res.status(400).json({ error: 'precio debe contener solo numeros' });
 
         const updates = {};
         if (nombre !== undefined) updates.nombre = String(nombre).trim();

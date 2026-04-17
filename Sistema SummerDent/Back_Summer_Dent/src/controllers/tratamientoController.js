@@ -1,5 +1,51 @@
 import { supabase, supabaseAdmin, getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
 
+const AREAS_PERMITIDAS = [
+  'Ortodoncia General',
+  'Ortodoncia',
+  'Ortopedia',
+  'Cirugía Odontológica',
+  'Endodoncia',
+  'Prótesis Removible Valplast o Flexible',
+  'Acrílicas'
+];
+const nombreRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÑñ]+)*$/;
+
+const esIdValido = (id) => /^\d+$/.test(String(id || '').trim()) && Number(String(id).trim()) > 0;
+
+const esTextoValido = (valor, min, max) => {
+  if (typeof valor !== 'string') return false;
+  const limpio = valor.trim();
+  return limpio.length >= min && limpio.length <= max;
+};
+
+const esNombreValido = (nombre) => {
+  if (typeof nombre !== 'string') return false;
+  return nombreRegex.test(nombre.trim());
+};
+
+const esAreaValida = (area) => {
+  if (typeof area !== 'string') return false;
+  const limpia = area.trim();
+  return AREAS_PERMITIDAS.includes(limpia) && limpia.length <= 64;
+};
+
+const esPrecioValido = (precio) => {
+  if (precio === undefined || precio === null || precio === '') return false;
+  const limpio = String(precio).trim();
+  if (!/^\d+$/.test(limpio)) return false;
+  const valor = Number(limpio);
+  if (!Number.isFinite(valor)) return false;
+  if (valor <= 0 || valor > 99999999) return false;
+  return true;
+};
+
+const esDescripcionValida = (descripcion) => {
+  if (descripcion === undefined || descripcion === null || descripcion === '') return true;
+  if (typeof descripcion !== 'string') return false;
+  return descripcion.trim().length <= 300;
+};
+
 const getTokenFromHeader = (req) => {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) return null;
@@ -25,9 +71,19 @@ export const crearTratamientoController = async (req, res) => {
     const supabaseUser = getSupabaseClientWithToken(token);
     const { area, nombre, precio, descripcion } = req.body;
 
+    if (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un objeto JSON valido' });
+    }
+
     if (!area || !String(area).trim()) return res.status(400).json({ error: 'El área es obligatoria' });
     if (!nombre || !String(nombre).trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
     if (precio === undefined || precio === null) return res.status(400).json({ error: 'El precio es obligatorio' });
+
+    if (!esAreaValida(area)) return res.status(400).json({ error: `El área es inválida. Debe ser una de: ${AREAS_PERMITIDAS.join(', ')}` });
+    if (!esTextoValido(nombre, 2, 64)) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 64 caracteres' });
+    if (!esNombreValido(nombre)) return res.status(400).json({ error: 'El nombre solo debe contener letras y espacios' });
+    if (!esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe contener solo numeros enteros positivos' });
+    if (!esDescripcionValida(descripcion)) return res.status(400).json({ error: 'La descripción no debe exceder 300 caracteres' });
 
     const { data, error } = await supabaseUser.from('tratamiento').insert([{
       area: String(area).trim(),
@@ -64,6 +120,9 @@ export const obtenerTratamientoPorIdController = async (req, res) => {
 
     const supabaseUser = getSupabaseClientWithToken(token);
     const { id } = req.params;
+
+    if (!esIdValido(id)) return res.status(400).json({ error: 'El id debe ser un número entero positivo' });
+
     const { data, error } = await supabaseUser.from('tratamiento').select('*').eq('id', id).maybeSingle();
     if (error) return res.status(500).json({ error: error.message || error });
     if (!data) return res.status(404).json({ error: 'Tratamiento no encontrado' });
@@ -85,6 +144,30 @@ export const actualizarTratamientoController = async (req, res) => {
     const { id } = req.params;
     const { area, nombre, precio, descripcion } = req.body;
 
+    if (!esIdValido(id)) return res.status(400).json({ error: 'El id debe ser un número entero positivo' });
+
+    if (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un objeto JSON valido' });
+    }
+
+    const camposPermitidos = ['area', 'nombre', 'precio', 'descripcion'];
+    const camposRecibidos = Object.keys(req.body || {});
+
+    if (camposRecibidos.length === 0) {
+      return res.status(400).json({ error: 'Debes enviar al menos un campo para actualizar' });
+    }
+
+    const camposNoPermitidos = camposRecibidos.filter((campo) => !camposPermitidos.includes(campo));
+    if (camposNoPermitidos.length > 0) {
+      return res.status(400).json({ error: `Campos no permitidos: ${camposNoPermitidos.join(', ')}` });
+    }
+
+    if (area !== undefined && area !== null && !esAreaValida(area)) return res.status(400).json({ error: `El área es inválida. Debe ser una de: ${AREAS_PERMITIDAS.join(', ')}` });
+    if (nombre !== undefined && !esTextoValido(String(nombre), 2, 64)) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 64 caracteres' });
+    if (nombre !== undefined && !esNombreValido(String(nombre))) return res.status(400).json({ error: 'El nombre solo debe contener letras y espacios' });
+    if (precio !== undefined && !esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe contener solo numeros enteros positivos' });
+    if (descripcion !== undefined && !esDescripcionValida(descripcion)) return res.status(400).json({ error: 'La descripción no debe exceder 300 caracteres' });
+
     const { data: existing, error: fetchErr } = await supabaseUser.from('tratamiento').select('id').eq('id', id).maybeSingle();
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
     if (!existing) return res.status(404).json({ error: 'Tratamiento no encontrado' });
@@ -94,6 +177,10 @@ export const actualizarTratamientoController = async (req, res) => {
     if (nombre !== undefined) updates.nombre = nombre ? String(nombre).trim() : null;
     if (precio !== undefined) updates.precio = precio;
     if (descripcion !== undefined) updates.descripcion = descripcion ? String(descripcion).trim() : null;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
+    }
 
     const { data, error } = await supabaseUser.from('tratamiento').update(updates).eq('id', id).select().maybeSingle();
     if (error) return res.status(400).json({ error: error.message || error });
@@ -113,6 +200,8 @@ export const eliminarTratamientoController = async (req, res) => {
 
     const supabaseUser = getSupabaseClientWithToken(token);
     const { id } = req.params;
+
+    if (!esIdValido(id)) return res.status(400).json({ error: 'El id debe ser un número entero positivo' });
 
     const { data: existing, error: fetchErr } = await supabaseUser.from('tratamiento').select('id').eq('id', id).maybeSingle();
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
