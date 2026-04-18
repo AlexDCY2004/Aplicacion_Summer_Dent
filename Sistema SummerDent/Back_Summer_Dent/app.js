@@ -9,6 +9,7 @@ import inventarioRoute from './src/routes/inventarioRoute.js';
 import doctorRoute from './src/routes/doctorRoute.js';
 import pacienteRoute from './src/routes/pacienteRoute.js';
 import tratamientoRoute from './src/routes/tratamientoRoute.js';
+import citaRoute from './src/routes/citaRoute.js';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/api/inventario', inventarioRoute);
 app.use('/api/doctores', doctorRoute);
 app.use('/api/pacientes', pacienteRoute);
 app.use('/api/tratamientos', tratamientoRoute);
+app.use('/api/citas', citaRoute);
 
 const PORT = Number(process.env.PORT || 5000);
 
