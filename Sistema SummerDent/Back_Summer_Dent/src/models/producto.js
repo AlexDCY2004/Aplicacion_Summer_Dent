@@ -34,6 +34,15 @@ export const Producto = sequelize.define(
                 }
             }
         },
+        precio: {
+            type: DataTypes.DECIMAL(10,2),
+            allowNull: false,
+            defaultValue: 0,
+            validate: {
+                isDecimal: { msg: 'El precio debe ser un número' },
+                min: { args: [0], msg: 'El precio no puede ser negativo' }
+            }
+        },
         created_at: {
             type: DataTypes.DATE,
             allowNull: false,

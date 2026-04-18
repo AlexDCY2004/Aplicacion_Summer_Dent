@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { dbConnectSupabase, sequelize } from './src/configuracionesDB/database.js';
 import authRoute from './src/routes/authRoute.js';
 import productoRoute from './src/routes/productoRoute.js';
+import inventarioRoute from './src/routes/inventarioRoute.js';
 import doctorRoute from './src/routes/doctorRoute.js';
 import pacienteRoute from './src/routes/pacienteRoute.js';
 import tratamientoRoute from './src/routes/tratamientoRoute.js';
@@ -29,6 +30,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoute);
 app.use('/api/productos', productoRoute);
+app.use('/api/inventario', inventarioRoute);
 app.use('/api/doctores', doctorRoute);
 app.use('/api/pacientes', pacienteRoute);
 app.use('/api/tratamientos', tratamientoRoute);
