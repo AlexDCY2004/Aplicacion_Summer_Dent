@@ -1,4 +1,4 @@
-import { getSupabaseClientWithToken, supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
+import { getSupabaseClientWithToken, supabase, supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
 
 const estadosPermitidos = ['pendiente', 'confirmada', 'Atendida', 'cancelada'];
 
@@ -12,6 +12,44 @@ const esCedulaValida = (cedula) => {
 
 const esFechaValida = (f) => typeof f === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f) && !Number.isNaN(new Date(`${f}T00:00:00`).getTime());
 const esHoraValida = (h) => typeof h === 'string' && /^\d{2}:\d{2}(:\d{2})?$/.test(h);
+const decodificarJwtPayload = (token) => {
+  if (!token || typeof token !== 'string') return null;
+  const partes = token.split('.');
+  if (partes.length < 2) return null;
+  const base64 = partes[1].replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+  return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+};
+
+const obtenerPerfilIdDesdeToken = (token) => {
+  try {
+    const payload = decodificarJwtPayload(token);
+    return payload && payload.sub ? String(payload.sub) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const obtenerPerfilIdAutenticado = async (token, supabaseUser) => {
+  // Camino principal: validar token explícitamente en Supabase (más confiable en backend).
+  try {
+    const {
+      data: { user },
+      error
+    } = await supabase.auth.getUser(token);
+    if (!error && user && user.id) return String(user.id);
+  } catch (e) {}
+
+  // Fallback: cliente con Authorization header.
+  try {
+    const { data: userData } = await supabaseUser.auth.getUser();
+    if (userData && userData.user && userData.user.id) return String(userData.user.id);
+    if (userData && userData.id) return String(userData.id);
+  } catch (e) {}
+
+  // Último fallback: decodificar JWT localmente.
+  return obtenerPerfilIdDesdeToken(token);
+};
 
 export const crearCitaController = async (req, res) => {
   try {
@@ -51,15 +89,7 @@ export const crearCitaController = async (req, res) => {
     if (de) return res.status(500).json({ error: de.message || de });
     if (!doctorExist) return res.status(404).json({ error: 'Doctor no encontrado' });
 
-    // Obtener id de perfil (usuario autenticado) desde el cliente supabase con token
-    let perfilId = null;
-    try {
-      const { data: userData } = await supabaseUser.auth.getUser();
-      if (userData && userData.user && userData.user.id) perfilId = userData.user.id;
-      else if (userData && userData.id) perfilId = userData.id;
-    } catch (e) {
-      perfilId = null;
-    }
+    const perfilId = await obtenerPerfilIdAutenticado(token, supabaseUser);
 
     // Calcular precio automáticamente si proporcionan tratamientos o un id_tratamiento
     let precioCalculado = null;
@@ -248,15 +278,7 @@ export const actualizarCitaController = async (req, res) => {
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
     if (!existing) return res.status(404).json({ error: 'Cita no encontrada' });
 
-    // obtener id de perfil (usuario autenticado) desde el cliente supabase con token
-    let perfilId = null;
-    try {
-      const { data: userData } = await supabaseUser.auth.getUser();
-      if (userData && userData.user && userData.user.id) perfilId = userData.user.id;
-      else if (userData && userData.id) perfilId = userData.id;
-    } catch (e) {
-      perfilId = null;
-    }
+    const perfilId = await obtenerPerfilIdAutenticado(token, supabaseUser);
 
     // decidir si usamos cliente admin para evitar RLS (permitir al propietario actualizar)
     const usarAdmin = perfilId && existing && existing.id_perfil === perfilId && supabaseAdmin;
@@ -311,12 +333,42 @@ export const actualizarCitaController = async (req, res) => {
     if (estado !== undefined) {
       if (!estadosPermitidos.includes(String(estado))) return res.status(400).json({ error: `estado inválido. Debe ser: ${estadosPermitidos.join(', ')}` });
       updates.estado = String(estado);
+      // Al pasar a Atendida, garantizar id_perfil para que el trigger de BD registre el ingreso correctamente.
+      if (String(estado) === 'Atendida' && !id_perfil && !existing.id_perfil && perfilId) {
+        updates.id_perfil = perfilId;
+      }
     }
 
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
 
     const { data, error } = await dbClient.from('cita').update(updates).eq('id', Number(id)).select().maybeSingle();
     if (error) return res.status(400).json({ error: error.message || error });
+
+    // Respaldo: si el trigger creó el movimiento con id_perfil NULL, corregir el último registro generado.
+    try {
+      const estadoPrevio = existing && existing.estado ? String(existing.estado) : null;
+      const estadoNuevo = data && data.estado ? String(data.estado) : null;
+      if (estadoPrevio !== 'Atendida' && estadoNuevo === 'Atendida' && perfilId) {
+        const finClient = supabaseAdmin || supabaseUser;
+        const { data: movNull, error: movNullErr } = await finClient
+          .from('movimiento_finanzas')
+          .select('id')
+          .is('id_perfil', null)
+          .eq('id_doctor', Number(data.id_doctor))
+          .eq('tipo', 'ingreso')
+          .eq('monto', Number(data.precio || 0))
+          .eq('fecha', new Date().toISOString().slice(0, 10))
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!movNullErr && movNull && movNull.id) {
+          await finClient.from('movimiento_finanzas').update({ id_perfil: perfilId }).eq('id', movNull.id);
+        }
+      }
+    } catch (e) {
+      // no bloquear flujo principal por fallback
+    }
 
     // Si se enviaron tratamientos, reemplazar las relaciones en la tabla intermedia
     if (tratamientos !== undefined) {
@@ -351,32 +403,6 @@ export const actualizarCitaController = async (req, res) => {
       } catch (e) {
         return res.status(500).json({ error: e.message || e });
       }
-    }
-
-    // Si el estado cambió a 'Atendida' y antes no lo estaba, insertar movimiento_finanzas
-    try {
-      const estadoPrevio = existing && existing.estado ? String(existing.estado) : null;
-      const estadoNuevo = data && data.estado ? String(data.estado) : null;
-      if (estadoPrevio !== 'Atendida' && estadoNuevo === 'Atendida') {
-        const movimiento = {
-          id_perfil: perfilId || null,
-          id_doctor: data.id_doctor || null,
-          tipo: 'ingreso',
-          monto: Number(data.precio || 0),
-          descripcion: `consulta de: ${data.tratamientos || ''}`,
-          fecha: new Date().toISOString().slice(0,10),
-          created_at: new Date().toISOString()
-        };
-        // usar cliente admin para insertar movimiento (evita RLS si aplica)
-        const finClient = supabaseAdmin || supabaseUser;
-        const { error: finErr } = await finClient.from('movimiento_finanzas').insert([movimiento]);
-        if (finErr) {
-          // no bloquear la respuesta principal, pero informar en logs
-          console.error('Error insertando movimiento_finanzas:', finErr);
-        }
-      }
-    } catch (e) {
-      console.error('Error procesando movimiento_finanzas:', e);
     }
 
     return res.json({ mensaje: 'Cita actualizada', cita: data });
