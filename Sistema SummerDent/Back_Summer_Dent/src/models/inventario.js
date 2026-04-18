@@ -37,6 +37,15 @@ export const Inventario = sequelize.define(
         min: { args: [0], msg: 'El stock mínimo no puede ser negativo' }
       }
     },
+    precio: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        isDecimal: { msg: 'El precio debe ser un número' },
+        min: { args: [0], msg: 'El precio no puede ser negativo' }
+      }
+    },
     fecha_actualizacion: {
       type: DataTypes.DATEONLY,
       allowNull: false,

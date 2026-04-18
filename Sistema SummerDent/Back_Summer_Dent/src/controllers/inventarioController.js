@@ -56,9 +56,11 @@ export const aumentarStockController = async (req, res) => {
 
         // validar que el producto exista
         if (!Number.isFinite(Number(id_producto))) return res.status(400).json({ error: 'id_producto inválido' });
-        const { data: prodData, error: prodErr } = await supabaseUser.from('producto').select('id').eq('id', id_producto).maybeSingle();
+        const { data: prodData, error: prodErr } = await supabaseUser.from('producto').select('id,precio').eq('id', id_producto).maybeSingle();
         if (prodErr) return res.status(500).json({ error: prodErr.message || prodErr });
         if (!prodData) return res.status(404).json({ error: 'Producto no encontrado' });
+
+        const precioProducto = prodData.precio !== null && prodData.precio !== undefined ? Number(prodData.precio).toFixed(2) : '0.00';
 
         // buscar inventario existente
         const { data: existing, error: fetchErr } = await supabaseUser.from('inventario').select('*').eq('id_producto', id_producto).maybeSingle();
@@ -73,6 +75,7 @@ export const aumentarStockController = async (req, res) => {
                 id_perfil: perfilId,
                 stock_producto: Math.floor(qty),
                 stock_minimo: 0,
+                precio: precioProducto,
                 fecha_actualizacion: today
             };
 
@@ -83,7 +86,7 @@ export const aumentarStockController = async (req, res) => {
 
         // actualizar stock
         const newStock = (Number(existing.stock_producto) || 0) + Math.floor(qty);
-        const { data: updated, error: updateErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
+        const { data: updated, error: updateErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId, precio: precioProducto }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
         if (updateErr) return res.status(400).json({ error: updateErr.message || updateErr });
 
         return res.json({ mensaje: 'Stock aumentado', inventario: updated });
@@ -128,6 +131,7 @@ export const registraMovimientoController = async (req, res) => {
         }
 
         if (tipo_movimiento === 'entrada') {
+            const precioProducto = prodData.precio !== null && prodData.precio !== undefined ? Number(prodData.precio).toFixed(2) : '0.00';
             // aumentar stock (crear inventario si no existe)
             if (!existing) {
                 const payload = {
@@ -135,6 +139,7 @@ export const registraMovimientoController = async (req, res) => {
                     id_perfil: perfilId,
                     stock_producto: Math.floor(qty),
                     stock_minimo: 0,
+                    precio: precioProducto,
                     fecha_actualizacion: today
                 };
                 const { data, error } = await supabaseUser.from('inventario').insert([payload]).select('*, producto(*)').maybeSingle();
@@ -143,7 +148,7 @@ export const registraMovimientoController = async (req, res) => {
             }
 
             const newStock = (Number(existing.stock_producto) || 0) + Math.floor(qty);
-            const { data: updated, error: updateErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
+            const { data: updated, error: updateErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId, precio: precioProducto }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
             if (updateErr) return res.status(400).json({ error: updateErr.message || updateErr });
             return res.json({ mensaje: 'Entrada registrada y stock actualizado', inventario: updated });
         }
@@ -161,7 +166,7 @@ export const registraMovimientoController = async (req, res) => {
         const totalVenta = Number((precioUnit * qty).toFixed(2));
 
         // actualizar inventario
-        const { data: updatedInv, error: invErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
+        const { data: updatedInv, error: invErr } = await supabaseUser.from('inventario').update({ stock_producto: newStock, fecha_actualizacion: today, id_perfil: perfilId, precio: precioUnit.toFixed(2) }).eq('id', existing.id).select('*, producto(*)').maybeSingle();
         if (invErr) return res.status(500).json({ error: invErr.message || invErr });
 
         // crear movimiento financiero: tipo 'ingreso', id_doctor NULL (no especificado), descripcion con nombre del producto

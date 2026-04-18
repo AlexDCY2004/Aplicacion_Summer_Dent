@@ -72,6 +72,7 @@ export const crearProductoController = async (req, res) => {
             id_perfil: perfilId,
             stock_producto: parsedStock !== null ? Math.floor(parsedStock) : 0,
             stock_minimo: parsedMin !== null ? Math.floor(parsedMin) : 0,
+            precio: productoData.precio !== null && productoData.precio !== undefined ? Number(productoData.precio).toFixed(2) : '0.00',
             fecha_actualizacion: new Date().toISOString().slice(0, 10) // YYYY-MM-DD
         };
 
@@ -126,7 +127,7 @@ export const actualizarProductoController = async (req, res) => {
         const supabaseUser = getSupabaseClientWithToken(token);
 
         const { id } = req.params;
-        const { nombre, descripcion, categoria, precio } = req.body;
+        const { nombre, descripcion, categoria, precio, stock_producto, stock_minimo } = req.body;
 
         const { data: existing, error: fetchErr } = await supabaseUser.from('producto').select('id').eq('id', id).maybeSingle();
         if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
@@ -134,6 +135,14 @@ export const actualizarProductoController = async (req, res) => {
 
         if (nombre !== undefined && !String(nombre).trim()) return res.status(400).json({ error: 'El nombre del producto no puede estar vacío' });
         if (!esPrecioValido(precio)) return res.status(400).json({ error: 'precio inválido (usa formato 0 o 0.00)' });
+        if (!esStockSoloNumeros(stock_producto)) return res.status(400).json({ error: 'stock_producto debe contener solo numeros' });
+        if (!esStockSoloNumeros(stock_minimo)) return res.status(400).json({ error: 'stock_minimo debe contener solo numeros' });
+
+        const parsedStock = stock_producto !== undefined && stock_producto !== null ? Number(stock_producto) : null;
+        const parsedMin = stock_minimo !== undefined && stock_minimo !== null ? Number(stock_minimo) : null;
+
+        if (parsedStock !== null && (!Number.isFinite(parsedStock) || !Number.isInteger(parsedStock) || parsedStock < 0)) return res.status(400).json({ error: 'stock_producto debe ser un numero entero >= 0' });
+        if (parsedMin !== null && (!Number.isFinite(parsedMin) || !Number.isInteger(parsedMin) || parsedMin < 0)) return res.status(400).json({ error: 'stock_minimo debe ser un numero entero >= 0' });
 
         const updates = {};
         if (nombre !== undefined) updates.nombre = String(nombre).trim();
@@ -145,8 +154,33 @@ export const actualizarProductoController = async (req, res) => {
             updates.precio = parsedPrecio !== null ? parsedPrecio.toFixed(2) : null;
         }
 
-        const { data, error } = await supabaseUser.from('producto').update(updates).eq('id', id).select().maybeSingle();
-        if (error) return res.status(400).json({ error: error.message || error });
+        const today = new Date().toISOString().slice(0, 10);
+
+        let data = null;
+        if (Object.keys(updates).length > 0) {
+            const { data: updatedProduct, error } = await supabaseUser.from('producto').update(updates).eq('id', id).select().maybeSingle();
+            if (error) return res.status(400).json({ error: error.message || error });
+            data = updatedProduct;
+        } else {
+            const { data: currentProduct, error } = await supabaseUser.from('producto').select('*').eq('id', id).maybeSingle();
+            if (error) return res.status(500).json({ error: error.message || error });
+            data = currentProduct;
+        }
+
+        const inventarioUpdates = {};
+        if (parsedStock !== null) inventarioUpdates.stock_producto = Math.floor(parsedStock);
+        if (parsedMin !== null) inventarioUpdates.stock_minimo = Math.floor(parsedMin);
+        if (updates.precio !== undefined && updates.precio !== null) inventarioUpdates.precio = updates.precio;
+
+        if (Object.keys(inventarioUpdates).length > 0) {
+            inventarioUpdates.fecha_actualizacion = today;
+            const { error: invErr } = await supabaseUser
+                .from('inventario')
+                .update(inventarioUpdates)
+                .eq('id_producto', id);
+
+            if (invErr) return res.status(500).json({ error: invErr.message || invErr });
+        }
 
         return res.json({ mensaje: 'Producto actualizado exitosamente', producto: data });
     } catch (error) {
