@@ -1,4 +1,4 @@
-import { getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
+import { supabaseAdmin, getSupabaseClientWithToken } from '../configuracionesDB/supabaseClient.js';
 
 const cedulaRegex = /^\d{10}$/;
 const telefonoRegex = /^\d{10}$/;
@@ -171,7 +171,7 @@ export const actualizarPacienteController = async (req, res) => {
 
     const supabaseUser = getSupabaseClientWithToken(token);
     const { id } = req.params;
-    const { nombre, apellido, fecha_nacimiento, telefono, correo, direccion } = req.body;
+    const { id_cedula, nombre, apellido, fecha_nacimiento, telefono, correo, direccion } = req.body;
 
     if (!esCedulaValida(id)) return res.status(400).json({ error: 'El id debe ser una cédula ecuatoriana válida de 10 dígitos' });
 
@@ -179,7 +179,7 @@ export const actualizarPacienteController = async (req, res) => {
       return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un objeto JSON valido' });
     }
 
-    const camposPermitidos = ['nombre', 'apellido', 'fecha_nacimiento', 'telefono', 'correo', 'direccion'];
+    const camposPermitidos = ['id_cedula', 'nombre', 'apellido', 'fecha_nacimiento', 'telefono', 'correo', 'direccion'];
     const camposRecibidos = Object.keys(req.body || {});
 
     if (camposRecibidos.length === 0) {
@@ -195,6 +195,22 @@ export const actualizarPacienteController = async (req, res) => {
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
     if (!existing) return res.status(404).json({ error: 'Paciente no encontrado' });
 
+    const cedulaNueva = id_cedula !== undefined ? String(id_cedula).trim() : id;
+    if (id_cedula !== undefined) {
+      if (!esCedulaValida(id_cedula)) return res.status(400).json({ error: 'La nueva cédula debe ser una cédula ecuatoriana válida de 10 dígitos' });
+
+      if (cedulaNueva !== id) {
+        const { data: cedulaExistente, error: cedulaErr } = await supabaseUser
+          .from('paciente')
+          .select('id_cedula')
+          .eq('id_cedula', cedulaNueva)
+          .maybeSingle();
+
+        if (cedulaErr) return res.status(500).json({ error: cedulaErr.message || cedulaErr });
+        if (cedulaExistente) return res.status(409).json({ error: 'Ya existe un paciente con esa nueva cédula' });
+      }
+    }
+
     if (nombre !== undefined && !String(nombre).trim()) return res.status(400).json({ error: 'El nombre no puede estar vacío' });
     if (apellido !== undefined && !String(apellido).trim()) return res.status(400).json({ error: 'El apellido no puede estar vacío' });
     if (nombre !== undefined && !esTextoValido(nombre, 2, 64)) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 64 caracteres' });
@@ -207,6 +223,7 @@ export const actualizarPacienteController = async (req, res) => {
     if (direccion !== undefined && direccion !== null && String(direccion).trim() && !esTextoValido(String(direccion), 1, 255)) return res.status(400).json({ error: 'La dirección no debe exceder 255 caracteres' });
 
     const updates = {};
+    if (id_cedula !== undefined && cedulaNueva !== id) updates.id_cedula = cedulaNueva;
     if (nombre !== undefined) updates.nombre = String(nombre).trim();
     if (apellido !== undefined) updates.apellido = String(apellido).trim();
     if (fecha_nacimiento !== undefined) updates.fecha_nacimiento = fecha_nacimiento ? String(fecha_nacimiento) : null;
@@ -218,7 +235,7 @@ export const actualizarPacienteController = async (req, res) => {
       return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
     }
 
-    const { data, error } = await supabaseUser.from('paciente').update(updates).eq('id_cedula', id).select().maybeSingle();
+    const { data, error } = await supabaseAdmin.from('paciente').update(updates).eq('id_cedula', id).select().maybeSingle();
     if (error) return res.status(400).json({ error: error.message || error });
 
     return res.json({ mensaje: 'Paciente actualizado', paciente: data });
@@ -232,16 +249,18 @@ export const eliminarPacienteController = async (req, res) => {
     const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.replace('Bearer ', '').trim() : null;
     if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
 
-    const supabaseUser = getSupabaseClientWithToken(token);
     const { id } = req.params;
 
     if (!esCedulaValida(id)) return res.status(400).json({ error: 'El id debe ser una cédula ecuatoriana válida de 10 dígitos' });
 
-    const { data: existing, error: fetchErr } = await supabaseUser.from('paciente').select('id_cedula').eq('id_cedula', id).maybeSingle();
+    const { data: existing, error: fetchErr } = await supabaseAdmin.from('paciente').select('id_cedula').eq('id_cedula', id).maybeSingle();
     if (fetchErr) return res.status(500).json({ error: fetchErr.message || fetchErr });
     if (!existing) return res.status(404).json({ error: 'Paciente no encontrado' });
 
-    const { error } = await supabaseUser.from('paciente').delete().eq('id_cedula', id);
+    const { error: citasError } = await supabaseAdmin.from('cita').delete().eq('id_paciente', id);
+    if (citasError) return res.status(500).json({ error: citasError.message || citasError });
+
+    const { error } = await supabaseAdmin.from('paciente').delete().eq('id_cedula', id);
     if (error) return res.status(500).json({ error: error.message || error });
 
     return res.json({ mensaje: 'Paciente eliminado' });

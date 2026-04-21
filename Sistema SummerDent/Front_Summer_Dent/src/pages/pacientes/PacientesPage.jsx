@@ -11,10 +11,12 @@ export default function PacientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState(null);
+  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit' | 'view'
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [modalFieldErrors, setModalFieldErrors] = useState({});
 
-  const { data: pacientes = [], isLoading, isError, refetch } = useQuery({
+  const { data: pacientes = [], isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['pacientes'],
     queryFn: fetchPacientes
   });
@@ -28,6 +30,7 @@ export default function PacientesPage() {
 
   const handleNewPaciente = () => {
     setSelectedPaciente(null);
+    setModalMode('create');
     setIsModalOpen(true);
   };
 
@@ -37,6 +40,7 @@ export default function PacientesPage() {
       fecha_nacimiento: paciente.fecha_nacimiento ? 
         new Date(paciente.fecha_nacimiento).toISOString().split('T')[0] : ''
     });
+    setModalMode('edit');
     setIsModalOpen(true);
   };
 
@@ -46,22 +50,32 @@ export default function PacientesPage() {
         await deletePaciente(paciente.id_cedula);
         queryClient.invalidateQueries({ queryKey: ['pacientes'] });
       } catch (err) {
-        setError('Error al eliminar el paciente');
-        console.error(err);
+        const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || JSON.stringify(err?.response?.data) || 'Error al eliminar el paciente';
+        setError(errMsg);
+        console.error('Error deleting paciente:', err);
       }
     }
   };
 
   const handleViewPaciente = (paciente) => {
-    alert(`Paciente: ${paciente.nombre} ${paciente.apellido}\nCédula: ${paciente.id_cedula}\nTeléfono: ${paciente.telefono || 'N/A'}\nDirección: ${paciente.direccion || 'N/A'}`);
+    setSelectedPaciente({
+      ...paciente,
+      fecha_nacimiento: paciente.fecha_nacimiento ? new Date(paciente.fecha_nacimiento).toISOString().split('T')[0] : ''
+    });
+    setModalMode('view');
+    setIsModalOpen(true);
   };
 
   const handleSubmitModal = async (formData) => {
     setIsSaving(true);
     setError(null);
+    setModalFieldErrors({});
     try {
       if (selectedPaciente?.id_cedula) {
-        await updatePaciente(selectedPaciente.id_cedula, formData);
+        // When editing, do NOT send id_cedula in the body (it's the resource identifier)
+        const payload = { ...formData };
+        if (payload.id_cedula !== undefined) delete payload.id_cedula;
+        await updatePaciente(selectedPaciente.id_cedula, payload);
       } else {
         await createPaciente(formData);
       }
@@ -69,15 +83,34 @@ export default function PacientesPage() {
       setSelectedPaciente(null);
       queryClient.invalidateQueries({ queryKey: ['pacientes'] });
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al guardar el paciente');
-      console.error(err);
+      const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || JSON.stringify(err?.response?.data) || 'Error al guardar el paciente';
+      console.error('Error saving paciente:', err);
+
+      const msgLower = String(serverMsg).toLowerCase();
+      const fieldErrs = {};
+      if (msgLower.includes('cedula') || msgLower.includes('cédula')) fieldErrs.id_cedula = serverMsg;
+      if (msgLower.includes('nombre')) fieldErrs.nombre = serverMsg;
+      if (msgLower.includes('apellido')) fieldErrs.apellido = serverMsg;
+      if (msgLower.includes('fecha') || msgLower.includes('nacimiento')) fieldErrs.fecha_nacimiento = serverMsg;
+      if (msgLower.includes('telefono') || msgLower.includes('teléfono')) fieldErrs.telefono = serverMsg;
+      if (msgLower.includes('correo')) fieldErrs.correo = serverMsg;
+      if (msgLower.includes('direccion') || msgLower.includes('dirección')) fieldErrs.direccion = serverMsg;
+
+      if (Object.keys(fieldErrs).length > 0) {
+        setModalFieldErrors(fieldErrs);
+      } else {
+        setError(serverMsg);
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
   if (isError) {
-    return <ErrorState onRetry={refetch} />;
+    // Extract useful message from Axios error if present
+    const err = queryError;
+    const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || JSON.stringify(err?.response?.data) || 'Error al obtener pacientes';
+    return <ErrorState title="Ocurrió un error" message={serverMsg} onRetry={refetch} />;
   }
 
   return (
@@ -131,14 +164,19 @@ export default function PacientesPage() {
       )}
 
       <PacienteModal
+        key={selectedPaciente?.id_cedula || 'new-paciente'}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedPaciente(null);
+          setModalFieldErrors({});
         }}
         onSubmit={handleSubmitModal}
         initialData={selectedPaciente}
         isLoading={isSaving}
+        readOnly={modalMode === 'view'}
+        isEditing={modalMode === 'edit'}
+        externalErrors={modalFieldErrors}
       />
     </div>
   );

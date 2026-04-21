@@ -8,6 +8,10 @@ import './styles/dashboard.css'
 import './styles/pacientes.css'
 import './styles/citas.css'
 import './styles/doctores.css'
+import './styles/tratamientos.css'
+import './styles/finanzas.css'
+import './styles/financiero.css'
+import './styles/inventario.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(

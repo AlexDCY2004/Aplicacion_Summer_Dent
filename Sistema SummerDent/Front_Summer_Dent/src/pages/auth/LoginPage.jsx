@@ -87,13 +87,6 @@ export default function LoginPage() {
             {isLoading ? 'Iniciando...' : 'Iniciar sesion'}
           </button>
         </div>
-
-        <div className="login-demo-credentials">
-          <p>Usuario de prueba:</p>
-          <strong>
-            admin@summerdent.com <span>/ admin123</span>
-          </strong>
-        </div>
       </form>
     </section>
   );

@@ -240,6 +240,12 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
+/* Modal width specific to Paciente modal */
+.modal-content--paciente {
+  max-width: 560px;
+  width: 85%;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;

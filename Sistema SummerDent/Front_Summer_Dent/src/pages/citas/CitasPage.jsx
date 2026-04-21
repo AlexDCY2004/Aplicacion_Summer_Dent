@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCitas, createCita, updateCita, deleteCita } from '../../services/api/citas';
 import { fetchPacientes } from '../../services/api/pacientes';
@@ -9,10 +9,20 @@ import CitaModal from '../../components/citas/CitaModal';
 import ErrorState from '../../components/feedback/ErrorState';
 import LoadingState from '../../components/feedback/LoadingState';
 
+const getPacienteNombre = (cita, pacientes) => {
+  if (cita.paciente?.nombre) {
+    return `${cita.paciente.nombre} ${cita.paciente.apellido}`.trim();
+  }
+
+  const paciente = pacientes.find((item) => String(item.id_cedula) === String(cita.id_paciente));
+  return paciente ? `${paciente.nombre} ${paciente.apellido}`.trim() : '-';
+};
+
 export default function CitasPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCita, setSelectedCita] = useState(null);
+  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit' | 'view'
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -38,16 +48,18 @@ export default function CitasPage() {
 
   const handleNewCita = () => {
     setSelectedCita(null);
+    setModalMode('create');
     setIsModalOpen(true);
   };
 
   const handleEditCita = (cita) => {
     setSelectedCita(cita);
+    setModalMode('edit');
     setIsModalOpen(true);
   };
 
   const handleDeleteCita = async (cita) => {
-    const pacienteNombre = cita.paciente ? `${cita.paciente.nombre} ${cita.paciente.apellido}` : 'Paciente';
+    const pacienteNombre = getPacienteNombre(cita, pacientes) !== '-' ? getPacienteNombre(cita, pacientes) : 'Paciente';
     const fechaFormato = cita.fecha ? new Date(cita.fecha).toLocaleDateString('es-EC') : '';
     
     if (confirm(`¿Eliminar cita de ${pacienteNombre} del ${fechaFormato}?`)) {
@@ -62,21 +74,9 @@ export default function CitasPage() {
   };
 
   const handleViewCita = (cita) => {
-    const pacienteNombre = cita.paciente ? `${cita.paciente.nombre} ${cita.paciente.apellido}` : 'N/A';
-    const doctorNombre = cita.doctor ? `${cita.doctor.nombre} ${cita.doctor.apellido}` : 'N/A';
-    const tratamientoNombre = cita.tratamiento?.nombre || 'N/A';
-    const fechaFormato = cita.fecha ? new Date(cita.fecha).toLocaleDateString('es-EC') : 'N/A';
-    
-    alert(
-      `Detalles de la Cita\n\n` +
-      `Paciente: ${pacienteNombre}\n` +
-      `Odontólogo: ${doctorNombre}\n` +
-      `Fecha: ${fechaFormato}\n` +
-      `Hora: ${cita.hora_inicio || 'N/A'} - ${cita.hora_fin || 'N/A'}\n` +
-      `Tratamiento: ${tratamientoNombre}\n` +
-      `Estado: ${cita.estado || 'N/A'}\n` +
-      `Monto: $${(cita.precio || 0).toFixed(2)}`
-    );
+    setSelectedCita(cita);
+    setModalMode('view');
+    setIsModalOpen(true);
   };
 
   const handleSubmitModal = async (formData) => {
@@ -126,6 +126,9 @@ export default function CitasPage() {
       ) : (
         <CitasTable
           citas={citas}
+          pacientes={pacientes}
+          doctores={doctores}
+          tratamientos={tratamientos}
           onEdit={handleEditCita}
           onDelete={handleDeleteCita}
           onView={handleViewCita}
@@ -134,10 +137,12 @@ export default function CitasPage() {
       )}
 
       <CitaModal
+        key={`${modalMode}-${selectedCita?.id || 'new-cita'}-${isModalOpen ? 'open' : 'closed'}`}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedCita(null);
+          setModalMode('create');
         }}
         onSubmit={handleSubmitModal}
         initialData={selectedCita}
@@ -145,6 +150,8 @@ export default function CitasPage() {
         pacientes={pacientes}
         doctores={doctores}
         tratamientos={tratamientos}
+        readOnly={modalMode === 'view'}
+        isEditing={modalMode === 'edit'}
       />
     </div>
   );

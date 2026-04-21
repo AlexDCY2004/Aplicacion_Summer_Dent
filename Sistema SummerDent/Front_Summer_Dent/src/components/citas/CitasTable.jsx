@@ -15,7 +15,34 @@ const getEstadoBadgeClass = (estado) => {
   }
 };
 
-export default function CitasTable({ citas, onEdit, onDelete, onView, isLoading }) {
+export default function CitasTable({ citas, pacientes = [], doctores = [], tratamientos = [], onEdit, onDelete, onView, isLoading }) {
+  const resolvePacienteNombre = (cita, pacientes = []) => {
+    if (cita.paciente?.nombre) {
+      return `${cita.paciente.nombre} ${cita.paciente.apellido}`.trim();
+    }
+
+    const paciente = pacientes.find((item) => String(item.id_cedula) === String(cita.id_paciente));
+    return paciente ? `${paciente.nombre} ${paciente.apellido}`.trim() : '-';
+  };
+
+  const resolveDoctorNombre = (cita, doctores = []) => {
+    if (cita.doctor?.nombre) {
+      return cita.doctor.nombre;
+    }
+
+    const doctor = doctores.find((item) => String(item.id) === String(cita.id_doctor));
+    return doctor ? doctor.nombre : '-';
+  };
+
+  const resolveTratamientoNombre = (cita, tratamientos = []) => {
+    if (cita.tratamiento?.nombre) return cita.tratamiento.nombre;
+
+    const tratamiento = tratamientos.find((item) => String(item.id) === String(cita.id_tratamiento));
+    if (tratamiento) return tratamiento.nombre;
+
+    return cita.tratamientos || '-';
+  };
+
   if (isLoading) {
     return (
       <div className="table-container">
@@ -69,6 +96,9 @@ export default function CitasTable({ citas, onEdit, onDelete, onView, isLoading 
         <tbody>
           {citas.map((cita) => {
             const isAttended = cita.estado?.toLowerCase() === 'atendida';
+            const pacienteNombre = resolvePacienteNombre(cita, pacientes);
+            const doctorNombre = resolveDoctorNombre(cita, doctores);
+            const tratamientoNombre = resolveTratamientoNombre(cita, tratamientos);
             
             return (
               <tr key={cita.id}>
@@ -85,13 +115,11 @@ export default function CitasTable({ citas, onEdit, onDelete, onView, isLoading 
                 <td>{cita.hora_fin || '-'}</td>
                 <td>
                   <strong>
-                    {cita.paciente
-                      ? `${cita.paciente.nombre} ${cita.paciente.apellido}`
-                      : '-'}
+                    {pacienteNombre}
                   </strong>
                 </td>
-                <td>{cita.doctor ? `${cita.doctor.nombre} ${cita.doctor.apellido}` : '-'}</td>
-                <td>{cita.tratamiento?.nombre || '-'}</td>
+                <td>{doctorNombre}</td>
+                <td>{tratamientoNombre}</td>
                 <td>
                   <span className={`badge ${getEstadoBadgeClass(cita.estado)}`}>
                     {cita.estado || 'Sin especificar'}

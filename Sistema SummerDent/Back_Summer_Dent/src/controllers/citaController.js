@@ -208,7 +208,12 @@ export const obtenerCitasController = async (req, res) => {
 
     const { id_doctor, id_paciente, fecha, estado } = req.query || {};
 
-    let query = supabaseUser.from('cita').select('*');
+    let query = supabaseUser.from('cita').select(`
+      *,
+      paciente:paciente(*),
+      doctor:doctor(*),
+      tratamiento:tratamiento(*)
+    `);
 
     if (id_doctor) {
       if (!esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
@@ -245,7 +250,16 @@ export const obtenerCitaPorIdController = async (req, res) => {
     const { id } = req.params;
     if (!esEnteroPositivo(id)) return res.status(400).json({ error: 'El id debe ser un numero entero positivo' });
 
-    const { data, error } = await supabaseUser.from('cita').select('*').eq('id', Number(id)).maybeSingle();
+    const { data, error } = await supabaseUser
+      .from('cita')
+      .select(`
+        *,
+        paciente:paciente(*),
+        doctor:doctor(*),
+        tratamiento:tratamiento(*)
+      `)
+      .eq('id', Number(id))
+      .maybeSingle();
     if (error) return res.status(500).json({ error: error.message || error });
     if (!data) return res.status(404).json({ error: 'Cita no encontrada' });
 

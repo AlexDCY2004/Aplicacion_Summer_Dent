@@ -10,6 +10,7 @@ export default function DoctoresPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -40,12 +41,14 @@ export default function DoctoresPage() {
 
   const openCreateModal = () => {
     setSelectedDoctor(null);
+    setIsViewMode(false);
     setErrorMessage('');
     setIsModalOpen(true);
   };
 
   const openEditModal = (doctor) => {
     setSelectedDoctor(doctor);
+    setIsViewMode(false);
     setErrorMessage('');
     setIsModalOpen(true);
   };
@@ -63,18 +66,10 @@ export default function DoctoresPage() {
   };
 
   const handleViewDoctor = (doctor) => {
-    const createdAt = doctor.created_at
-      ? new Date(doctor.created_at).toLocaleDateString('es-EC')
-      : 'No disponible';
-
-    window.alert(
-      `Odontólogo: ${doctor.nombre}\n`
-      + `Teléfono: ${doctor.telefono || '-'}\n`
-      + `Correo: ${doctor.correo || '-'}\n`
-      + `Especialidad: ${doctor.especialidad || '-'}\n`
-      + `Estado: ${doctor.estado || '-'}\n`
-      + `Fecha de registro: ${createdAt}`
-    );
+    setSelectedDoctor(doctor);
+    setIsViewMode(true);
+    setErrorMessage('');
+    setIsModalOpen(true);
   };
 
   const handleSaveDoctor = async (payload) => {
@@ -147,10 +142,12 @@ export default function DoctoresPage() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedDoctor(null);
+          setIsViewMode(false);
         }}
         onSubmit={handleSaveDoctor}
         initialData={selectedDoctor}
         isLoading={isSaving}
+        readOnly={isViewMode}
       />
     </div>
   );
