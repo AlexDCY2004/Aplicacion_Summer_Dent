@@ -1,0 +1,73 @@
+import apiClient from './client';
+
+const getToday = () => new Date().toISOString().slice(0, 10);
+const getCurrentMonth = () => getToday().slice(0, 7);
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeStatus = (value) => {
+  const status = String(value || '').toLowerCase();
+  if (status.includes('confirm')) return 'confirmada';
+  if (status.includes('pend')) return 'pendiente';
+  return status || 'pendiente';
+};
+
+const trimTime = (value) => String(value || '').slice(0, 5);
+
+const sumMonthAmount = (rows, monthRef) =>
+  rows
+    .filter((item) => String(item?.fecha || '').startsWith(monthRef))
+    .reduce((sum, item) => sum + toNumber(item?.monto), 0);
+
+export async function fetchDashboardSnapshot() {
+  const [citasRes, ingresosRes, egresosRes] = await Promise.all([
+    apiClient.get('/api/citas'),
+    apiClient.get('/api/movimientos-finanzas/ingresos'),
+    apiClient.get('/api/movimientos-finanzas/egresos')
+  ]);
+
+  const citas = Array.isArray(citasRes?.data) ? citasRes.data : [];
+  const ingresos = Array.isArray(ingresosRes?.data) ? ingresosRes.data : [];
+  const egresos = Array.isArray(egresosRes?.data) ? egresosRes.data : [];
+
+  const today = getToday();
+  const monthRef = getCurrentMonth();
+
+  const citasHoy = citas.filter((item) => item?.fecha === today).length;
+  const totalIngresos = sumMonthAmount(ingresos, monthRef);
+  const totalEgresos = sumMonthAmount(egresos, monthRef);
+  const balance = totalIngresos - totalEgresos;
+
+  const upcomingAppointments = citas
+    .filter((item) => String(item?.fecha || '') >= today)
+    .sort((a, b) => {
+      const aKey = `${a?.fecha || ''} ${a?.hora_inicio || ''}`;
+      const bKey = `${b?.fecha || ''} ${b?.hora_inicio || ''}`;
+      return aKey.localeCompare(bKey);
+    })
+    .slice(0, 6)
+    .map((item) => ({
+      id: item?.id,
+      date: item?.fecha || today,
+      start: trimTime(item?.hora_inicio),
+      end: trimTime(item?.hora_fin),
+      status: normalizeStatus(item?.estado)
+    }));
+
+  return {
+    summary: {
+      citasHoy,
+      totalIngresos,
+      totalEgresos,
+      balance
+    },
+    appointments: upcomingAppointments,
+    financial: {
+      ingresosMes: totalIngresos,
+      egresosMes: totalEgresos
+    }
+  };
+}

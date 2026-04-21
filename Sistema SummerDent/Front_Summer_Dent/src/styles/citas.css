@@ -1,0 +1,195 @@
+/* ========== CITAS PAGE STYLES ========== */
+
+.citas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.citas-table thead {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.citas-table th {
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.citas-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.2s;
+}
+
+.citas-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.citas-table td {
+  padding: 0.875rem 0.75rem;
+  color: #333;
+}
+
+.citas-table td strong {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* ========== STATE BADGES ========== */
+
+.badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.badge-confirmed {
+  background-color: rgba(124, 179, 66, 0.15);
+  color: #7cb342;
+}
+
+.badge-pending {
+  background-color: rgba(251, 188, 5, 0.15);
+  color: #fbc405;
+}
+
+.badge-attended {
+  background-color: rgba(66, 183, 245, 0.15);
+  color: #42b7f5;
+}
+
+.badge-cancelled {
+  background-color: rgba(211, 47, 47, 0.15);
+  color: #d32f2f;
+}
+
+.badge-default {
+  background-color: rgba(158, 158, 158, 0.15);
+  color: #9e9e9e;
+}
+
+/* ========== FORM STYLES ========== */
+
+.cita-form {
+  padding: 1.5rem;
+}
+
+.cita-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.cita-form .form-row:nth-child(2) {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.cita-form .form-row:nth-child(3) {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.cita-form .form-group {
+  margin-bottom: 0;
+}
+
+.cita-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.cita-form input,
+.cita-form select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.cita-form input:focus,
+.cita-form select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.cita-form input.input-error,
+.cita-form select.input-error {
+  border-color: #d32f2f;
+  background-color: rgba(211, 47, 47, 0.05);
+}
+
+.error-text {
+  display: block;
+  color: #d32f2f;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* ========== MODAL SIZE ========== */
+
+.modal-content--large {
+  max-width: 800px;
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 1200px) {
+  .citas-table {
+    font-size: 0.85rem;
+  }
+
+  .citas-table th,
+  .citas-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .cita-form .form-row:nth-child(2),
+  .cita-form .form-row:nth-child(3) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .citas-table {
+    font-size: 0.8rem;
+  }
+
+  .citas-table th,
+  .citas-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .cita-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .table-actions {
+    gap: 0.25rem;
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .modal-content {
+    width: 95%;
+  }
+}

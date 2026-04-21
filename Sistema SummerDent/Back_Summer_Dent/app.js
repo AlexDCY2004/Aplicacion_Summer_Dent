@@ -16,11 +16,30 @@ dotenv.config();
 
 const app = express();
 
+const envOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const allowedOrigins = new Set([
+    'http://localhost:5173',
+    'http://localhost:3000',
+    ...envOrigins
+]);
+
 app.use(
     cors({
-        origin: process.env.FRONTEND_URL || '*',
+        origin: (origin, callback) => {
+            // Allow requests without Origin header (Postman, server-to-server).
+            if (!origin || allowedOrigins.has(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error(`Origen no permitido por CORS: ${origin}`));
+        },
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
-        allowedHeaders: ['Content-Type', 'Authorization']
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        credentials: true
     })
 );
 
