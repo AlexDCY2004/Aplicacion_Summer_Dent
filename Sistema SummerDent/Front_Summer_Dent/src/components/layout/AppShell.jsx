@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import logoImage from '../../assets/Logo.png';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: 'grid' },
@@ -35,7 +36,7 @@ export default function AppShell() {
     <div className="app-shell">
       <aside className="app-shell__sidebar">
         <div className="sidebar-brand">
-          <div className="sidebar-brand__logo" aria-hidden="true" />
+          <img src={logoImage} alt="Logo Summer Dent" className="sidebar-brand__logo" />
           <div>
             <h2>Summer Dent</h2>
             <p>Sistema de Gestion Dental</p>
@@ -71,7 +72,7 @@ export default function AppShell() {
               <small>({user?.rol || 'Secretaria'})</small>
             </div>
             <button type="button" onClick={logout} className="logout-btn">
-              Cerrar sesion
+              Cerrar sesión
             </button>
           </div>
         </header>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import ErrorState from '../../components/feedback/ErrorState';
 import LoadingState from '../../components/feedback/LoadingState';
 import { quickActions } from '../../lib/dashboardData';
@@ -11,6 +12,13 @@ const statIcons = {
   balance: 'money'
 };
 
+const quickActionRoutes = {
+  'Gestionar Pacientes': '/pacientes',
+  'Ver Citas': '/citas',
+  'Registrar Ingreso': '/ingresos',
+  'Revisar Inventario': '/inventario'
+};
+
 const StatIcon = ({ type }) => {
   const common = { width: 30, height: 30, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' };
   if (type === 'calendar') return <svg {...common}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
@@ -20,6 +28,7 @@ const StatIcon = ({ type }) => {
 };
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard-snapshot'],
     queryFn: fetchDashboardSnapshot
@@ -60,7 +69,7 @@ export default function DashboardPage() {
     return (
       <ErrorState
         title="No se pudo cargar el dashboard"
-        message="Verifica la sesion o la conexion con el backend e intenta nuevamente."
+        message="Verifica la sesión o la conexion con el backend e intenta nuevamente."
         onRetry={() => refetch()}
       />
     );
@@ -96,10 +105,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="quick-access">
-        <h2>Accesos Rapidos</h2>
+        <h2>Accesos Rápidos</h2>
         <div className="quick-access__buttons">
           {quickActions.map((action, index) => (
-            <button key={action} type="button" className={`quick-btn quick-btn--${index + 1}`}>
+            <button
+              key={action}
+              type="button"
+              className={`quick-btn quick-btn--${index + 1}`}
+              onClick={() => navigate(quickActionRoutes[action] || '/dashboard')}
+            >
               {action}
             </button>
           ))}
@@ -108,13 +122,13 @@ export default function DashboardPage() {
 
       <div className="dashboard-panels">
         <article className="panel-card">
-          <h3>Proximas Citas</h3>
+          <h3>Próximas Citas</h3>
 
           <div className="appointments-list">
             {isLoading ? (
               <LoadingState lines={3} />
             ) : nextAppointments.length === 0 ? (
-              <p className="dashboard-empty">No hay citas proximas registradas.</p>
+              <p className="dashboard-empty">No hay citas próximas registradas.</p>
             ) : (
               nextAppointments.map((appointment) => (
                 <div key={appointment.id} className="appointment-item">

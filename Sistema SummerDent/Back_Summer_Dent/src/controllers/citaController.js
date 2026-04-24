@@ -208,12 +208,7 @@ export const obtenerCitasController = async (req, res) => {
 
     const { id_doctor, id_paciente, fecha, estado } = req.query || {};
 
-    let query = supabaseUser.from('cita').select(`
-      *,
-      paciente:paciente(*),
-      doctor:doctor(*),
-      tratamiento:tratamiento(*)
-    `);
+    let query = supabaseUser.from('cita').select('*');
 
     if (id_doctor) {
       if (!esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
@@ -252,12 +247,7 @@ export const obtenerCitaPorIdController = async (req, res) => {
 
     const { data, error } = await supabaseUser
       .from('cita')
-      .select(`
-        *,
-        paciente:paciente(*),
-        doctor:doctor(*),
-        tratamiento:tratamiento(*)
-      `)
+      .select('*')
       .eq('id', Number(id))
       .maybeSingle();
     if (error) return res.status(500).json({ error: error.message || error });

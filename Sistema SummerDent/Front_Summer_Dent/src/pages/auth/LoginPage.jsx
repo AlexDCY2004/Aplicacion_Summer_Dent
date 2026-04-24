@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../services/api/client';
 import { useAuthStore } from '../../store/authStore';
+import logoImage from '../../assets/Logo.png';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function LoginPage() {
       if (!error?.response) {
         setErrorMessage('No se pudo conectar al backend. Revisa VITE_BACKEND_URL y CORS.');
       } else {
-        setErrorMessage(error?.response?.data?.error || 'No fue posible iniciar sesion.');
+        setErrorMessage(error?.response?.data?.error || 'No fue posible iniciar sesión.');
       }
     } finally {
       setIsLoading(false);
@@ -48,16 +49,13 @@ export default function LoginPage() {
     <section className="auth-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <div className="login-logo" aria-hidden="true">
-            <span className="login-logo__shine" />
-            <span className="login-logo__tooth">tooth</span>
-          </div>
+          <img src={logoImage} alt="Logo Summer Dent" className="login-logo" />
           <h1>Summer Dent</h1>
-          <p>Sistema de Gestion Dental</p>
+          <p>Sistema de Gestión Dental</p>
         </div>
 
         <div className="login-form-grid">
-          <label htmlFor="email">Correo electronico</label>
+          <label htmlFor="email">Correo electrónico</label>
           <input
             id="email"
             name="email"
@@ -69,7 +67,7 @@ export default function LoginPage() {
             placeholder="correo@ejemplo.com"
           />
 
-          <label htmlFor="password">Contrasena</label>
+          <label htmlFor="password">Contraseña</label>
           <input
             id="password"
             name="password"
@@ -84,7 +82,7 @@ export default function LoginPage() {
           {errorMessage ? <p className="auth-error">{errorMessage}</p> : null}
 
           <button type="submit" disabled={isLoading}>
-            {isLoading ? 'Iniciando...' : 'Iniciar sesion'}
+            {isLoading ? 'Iniciando...' : 'Iniciar sesión'}
           </button>
         </div>
       </form>

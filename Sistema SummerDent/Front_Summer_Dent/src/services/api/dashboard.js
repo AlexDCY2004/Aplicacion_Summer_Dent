@@ -23,15 +23,15 @@ const sumMonthAmount = (rows, monthRef) =>
     .reduce((sum, item) => sum + toNumber(item?.monto), 0);
 
 export async function fetchDashboardSnapshot() {
-  const [citasRes, ingresosRes, egresosRes] = await Promise.all([
+  const [citasRes, ingresosRes, egresosRes] = await Promise.allSettled([
     apiClient.get('/api/citas'),
     apiClient.get('/api/movimientos-finanzas/ingresos'),
     apiClient.get('/api/movimientos-finanzas/egresos')
   ]);
 
-  const citas = Array.isArray(citasRes?.data) ? citasRes.data : [];
-  const ingresos = Array.isArray(ingresosRes?.data) ? ingresosRes.data : [];
-  const egresos = Array.isArray(egresosRes?.data) ? egresosRes.data : [];
+  const citas = citasRes.status === 'fulfilled' && Array.isArray(citasRes.value?.data) ? citasRes.value.data : [];
+  const ingresos = ingresosRes.status === 'fulfilled' && Array.isArray(ingresosRes.value?.data) ? ingresosRes.value.data : [];
+  const egresos = egresosRes.status === 'fulfilled' && Array.isArray(egresosRes.value?.data) ? egresosRes.value.data : [];
 
   const today = getToday();
   const monthRef = getCurrentMonth();

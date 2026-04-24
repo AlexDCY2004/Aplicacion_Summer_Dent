@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCitas, createCita, updateCita, deleteCita } from '../../services/api/citas';
 import { fetchPacientes } from '../../services/api/pacientes';
@@ -6,7 +6,6 @@ import { fetchDoctores } from '../../services/api/doctores';
 import { fetchTratamientos } from '../../services/api/tratamientos';
 import CitasTable from '../../components/citas/CitasTable';
 import CitaModal from '../../components/citas/CitaModal';
-import ErrorState from '../../components/feedback/ErrorState';
 import LoadingState from '../../components/feedback/LoadingState';
 
 const getPacienteNombre = (cita, pacientes) => {
@@ -20,6 +19,7 @@ const getPacienteNombre = (cita, pacientes) => {
 
 export default function CitasPage() {
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCita, setSelectedCita] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit' | 'view'
@@ -45,6 +45,27 @@ export default function CitasPage() {
     queryKey: ['tratamientos'],
     queryFn: fetchTratamientos
   });
+
+  const filteredCitas = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return citas;
+
+    return citas.filter((cita) => {
+      const pacienteNombre = getPacienteNombre(cita, pacientes).toLowerCase();
+
+      const doctorNombre = cita.doctor?.nombre
+        ? cita.doctor.nombre.toLowerCase()
+        : (doctores.find((item) => String(item.id) === String(cita.id_doctor))?.nombre || '').toLowerCase();
+
+      const estado = (cita.estado || '').toLowerCase();
+
+      return (
+        pacienteNombre.includes(search)
+        || doctorNombre.includes(search)
+        || estado.includes(search)
+      );
+    });
+  }, [citas, doctores, pacientes, searchTerm]);
 
   const handleNewCita = () => {
     setSelectedCita(null);
@@ -99,10 +120,6 @@ export default function CitasPage() {
     }
   };
 
-  if (isError) {
-    return <ErrorState onRetry={refetch} />;
-  }
-
   return (
     <div className="page-container">
       <div className="page-header">
@@ -121,11 +138,41 @@ export default function CitasPage() {
         </div>
       )}
 
+      <div className="search-container" style={{ marginBottom: '1rem' }}>
+        <svg
+          className="search-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Buscar por paciente, odontólogo o estado..."
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+      </div>
+
+      {isError && (
+        <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+          <div style={{ marginBottom: '0.75rem', fontWeight: 600 }}>No se pudieron cargar las citas</div>
+          <div style={{ marginBottom: '0.75rem' }}>Verifica la sesión o la conexión con el backend e intenta nuevamente.</div>
+          <button type="button" className="btn btn-secondary" onClick={() => refetch()}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingState />
       ) : (
         <CitasTable
-          citas={citas}
+          citas={isError ? [] : filteredCitas}
           pacientes={pacientes}
           doctores={doctores}
           tratamientos={tratamientos}

@@ -292,11 +292,9 @@ export default function InventarioPage() {
           <table className="inventario-table">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>Id Producto</th>
-                <th>Id Perfil</th>
-                <th>Cantidad Actual</th>
-                <th>Stock Mínimo</th>
+                <th>Producto</th>
+                <th className="inventario-col-center">Cantidad Actual</th>
+                <th className="inventario-col-center">Stock Mínimo</th>
                 <th>Última Actualización</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -310,14 +308,11 @@ export default function InventarioPage() {
                   <tr key={inventario.id}>
                     <td>
                       <span className="inventario-product-title">{getProductName(inventario)}</span>
-                      <span className="inventario-product-subtitle">{inventario.producto?.categoria || inventario.producto?.descripcion || 'Insumo del consultorio'}</span>
                     </td>
-                    <td>{inventario.id_producto || '-'}</td>
-                    <td>{inventario.id_perfil || '-'}</td>
-                    <td className={`inventario-stock-value inventario-stock-value--${status}`}>
+                    <td className={`inventario-col-center inventario-stock-value inventario-stock-value--${status}`}>
                       {inventario.stock_producto ?? 0}
                     </td>
-                    <td>{inventario.stock_minimo ?? 0}</td>
+                    <td className="inventario-col-center">{inventario.stock_minimo ?? 0}</td>
                     <td>{formatDate(inventario.fecha_actualizacion)}</td>
                     <td>
                       <span className={`inventory-status-badge inventory-status-badge--${status}`}>
@@ -325,14 +320,43 @@ export default function InventarioPage() {
                       </span>
                     </td>
                     <td className="table-actions">
-                      <button type="button" className="btn btn-secondary" onClick={() => handleViewInventario(inventario)}>
-                        Ver
+                      <button
+                        type="button"
+                        className="inventario-action-btn inventario-action-btn--view"
+                        onClick={() => handleViewInventario(inventario)}
+                        aria-label="Ver detalle"
+                        title="Ver detalle"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
                       </button>
-                      <button type="button" className="btn btn-secondary" onClick={() => openEditModal(inventario)}>
-                        Editar
+                      <button
+                        type="button"
+                        className="inventario-action-btn inventario-action-btn--edit"
+                        onClick={() => openEditModal(inventario)}
+                        aria-label="Editar"
+                        title="Editar"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
                       </button>
-                      <button type="button" className="btn btn-primary" onClick={() => handleRegisterMovement(inventario)}>
-                        Registrar Movimiento
+                      <button
+                        type="button"
+                        className="inventario-action-btn inventario-action-btn--movement"
+                        onClick={() => handleRegisterMovement(inventario)}
+                        aria-label="Registrar movimiento"
+                        title="Registrar movimiento"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M17 1l4 4-4 4" />
+                          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                          <path d="M7 23l-4-4 4-4" />
+                          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                        </svg>
                       </button>
                     </td>
                   </tr>

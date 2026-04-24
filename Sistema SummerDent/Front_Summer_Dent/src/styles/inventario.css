@@ -3,6 +3,10 @@
   gap: 1.5rem;
 }
 
+.inventario-page .page-header {
+  margin-bottom: 0;
+}
+
 .inventario-alert-card {
   border: 1px solid #ffd59e;
   border-radius: 16px;
@@ -48,6 +52,11 @@
   padding: 1rem;
   text-align: left;
   color: #23324a;
+}
+
+.inventario-table th.inventario-col-center,
+.inventario-table td.inventario-col-center {
+  text-align: center;
 }
 
 .inventario-table tbody tr {
@@ -114,6 +123,48 @@
 
 .inventario-stock-value--ok {
   color: #15803d;
+}
+
+.inventario-action-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.inventario-action-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.inventario-action-btn--view {
+  color: #2563eb;
+}
+
+.inventario-action-btn--view:hover {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.inventario-action-btn--edit {
+  color: #16a34a;
+}
+
+.inventario-action-btn--edit:hover {
+  background: rgba(22, 163, 74, 0.14);
+}
+
+.inventario-action-btn--movement {
+  color: #c79000;
+}
+
+.inventario-action-btn--movement:hover {
+  background: rgba(199, 144, 0, 0.14);
 }
 
 .inventario-filters {

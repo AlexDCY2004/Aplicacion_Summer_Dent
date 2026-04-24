@@ -11,15 +11,15 @@
 
 .dashboard-title h1 {
   margin: 0;
-  font-size: 2.55rem;
+  font-size: 1.6rem;/**/
   color: #162b49;
   font-weight: 700;
 }
 
 .dashboard-title p {
   margin-top: 0.35rem;
-  color: #5f7493;
-  font-size: 1.05rem;
+  color: #2e2d2d;
+  font-size: 0.9rem;/**/
 }
 
 .summary-grid {
@@ -40,14 +40,14 @@
 
 .stat-card__title {
   margin: 0;
-  color: #6a7f9f;
-  font-size: 1rem;
+  color: #2e2d2d;
+  font-size: 0.88rem;/**/
 }
 
 .stat-card__value {
   margin: 0.55rem 0 0;
   color: #162b49;
-  font-size: 2.7rem;
+  font-size: 1.5rem;/**/
   font-weight: 800;
   line-height: 1;
 }
@@ -78,7 +78,7 @@
 
 .quick-access h2 {
   margin: 0;
-  font-size: 2.15rem;
+  font-size: 1.3rem;/**/
   color: #162b49;
 }
 
@@ -95,7 +95,7 @@
   height: 44px;
   color: #fff;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.85rem;/**/
   cursor: pointer;
 }
 
@@ -131,7 +131,7 @@
 .panel-card h3 {
   margin: 0;
   color: #162b49;
-  font-size: 1.85rem;
+  font-size: 1.3rem;/**/
 }
 
 .appointments-list {
@@ -143,7 +143,7 @@
 .dashboard-empty {
   margin: 0;
   color: #647b9b;
-  font-size: 0.95rem;
+  font-size: 0.85rem;/**/
 }
 
 .appointment-item {
@@ -159,18 +159,18 @@
 .appointment-id {
   margin: 0;
   color: #2d3f5d;
-  font-size: 1.05rem;
+  font-size: 0.8rem;/**/
 }
 
 .appointment-item span {
   color: #647b9b;
-  font-size: 0.95rem;
+  font-size: 0.85rem;/**/
 }
 
 .appointment-status {
   border-radius: 8px;
   padding: 0.35rem 0.65rem;
-  font-size: 0.95rem;
+  font-size: 0.82rem;/**/
   font-weight: 600;
 }
 
@@ -200,11 +200,11 @@
 
 .finance-item span {
   color: #2f4562;
-  font-size: 1.05rem;
+  font-size: 0.92rem;/**/
 }
 
 .finance-item strong {
-  font-size: 1.95rem;
+  font-size: 1rem;/**/
 }
 
 .finance-item--income {
@@ -239,12 +239,12 @@
 
 @media (max-width: 720px) {
   .dashboard-title h1 {
-    font-size: 1.9rem;
+    font-size: 1.45rem;/**/
   }
 
   .quick-access h2,
   .panel-card h3 {
-    font-size: 1.5rem;
+    font-size: 1.2rem;/**/
   }
 
   .summary-grid,
@@ -253,7 +253,7 @@
   }
 
   .stat-card__value {
-    font-size: 2rem;
+    font-size: 1.6rem;/**/
   }
 
   .appointment-item {
