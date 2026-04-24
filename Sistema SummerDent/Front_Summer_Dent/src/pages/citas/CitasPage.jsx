@@ -25,6 +25,7 @@ export default function CitasPage() {
   const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit' | 'view'
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [serverFormErrors, setServerFormErrors] = useState({});
 
   const { data: citas = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['citas'],
@@ -70,12 +71,16 @@ export default function CitasPage() {
   const handleNewCita = () => {
     setSelectedCita(null);
     setModalMode('create');
+    setServerFormErrors({});
+    setError(null);
     setIsModalOpen(true);
   };
 
   const handleEditCita = (cita) => {
     setSelectedCita(cita);
     setModalMode('edit');
+    setServerFormErrors({});
+    setError(null);
     setIsModalOpen(true);
   };
 
@@ -97,12 +102,14 @@ export default function CitasPage() {
   const handleViewCita = (cita) => {
     setSelectedCita(cita);
     setModalMode('view');
+    setError(null);
     setIsModalOpen(true);
   };
 
   const handleSubmitModal = async (formData) => {
     setIsSaving(true);
     setError(null);
+    setServerFormErrors({});
     try {
       if (selectedCita?.id) {
         await updateCita(selectedCita.id, formData);
@@ -113,8 +120,16 @@ export default function CitasPage() {
       setSelectedCita(null);
       queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
-      setError(err.response?.data?.message || 'Error al guardar la cita');
-      console.error(err);
+      const serverError = err?.response?.data?.error || err?.response?.data?.mensaje || err?.response?.data?.message || err.message;
+      // If backend sent a string message, show it inside the modal form; otherwise fallback to top error
+      if (typeof serverError === 'string' && serverError.trim()) {
+        setServerFormErrors({ _form: serverError });
+        setError(null);
+      } else {
+        setServerFormErrors({});
+        setError(serverError || 'Error al guardar la cita');
+      }
+      console.error('Error al guardar cita:', err);
     } finally {
       setIsSaving(false);
     }
@@ -199,6 +214,7 @@ export default function CitasPage() {
         tratamientos={tratamientos}
         readOnly={modalMode === 'view'}
         isEditing={modalMode === 'edit'}
+        externalErrors={serverFormErrors}
       />
     </div>
   );

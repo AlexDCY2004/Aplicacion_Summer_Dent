@@ -255,6 +255,11 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
   return (
     <div className="modal-overlay">
       <div className="modal-content modal-content--large" onClick={(e) => e.stopPropagation()}>
+        {displayErrors._form && (
+          <div style={{ padding: '0 1.25rem', marginTop: '0.75rem' }}>
+            <div className="alert alert-error">{displayErrors._form}</div>
+          </div>
+        )}
         <div className="modal-header">
           <h2>{readOnly ? 'Ver Cita' : (initialData?.id ? 'Editar Cita' : 'Nueva Cita')}</h2>
           <button type="button" className="modal-close" onClick={onClose}>✕</button>

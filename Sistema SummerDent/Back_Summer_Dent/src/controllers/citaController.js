@@ -314,7 +314,9 @@ export const actualizarCitaController = async (req, res) => {
       }
       const total = tratamientosData.reduce((s, t) => s + Number(t.precio || 0), 0);
       updates.precio = total;
-      updates.id_tratamiento = tratamientos.length === 1 ? Number(tratamientos[0]) : null;
+      // Do not write `id_tratamiento` directly on `cita` because some DB
+      // schemas do not include that column. Use the `cita_tratamiento`
+      // relation table to store treatments (handled below).
     }
     if (id_perfil !== undefined) updates.id_perfil = id_perfil || null;
     if (fecha !== undefined) {
