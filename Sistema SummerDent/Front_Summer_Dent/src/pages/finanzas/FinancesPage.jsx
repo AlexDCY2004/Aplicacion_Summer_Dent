@@ -41,7 +41,7 @@ const getDoctorLabel = (movimiento) => {
   return '-';
 };
 
-const getMovementSign = (tipo) => (tipo === 'egreso' ? '-' : '+');
+//const getMovementSign = (tipo) => (tipo === 'egreso' ? '-' : '+');
 
 const getMovementClass = (tipo) => (tipo === 'egreso' ? 'movement-row--expense' : 'movement-row--income');
 
