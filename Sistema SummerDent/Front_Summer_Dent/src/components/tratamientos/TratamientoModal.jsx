@@ -50,6 +50,10 @@ export default function TratamientoModal({
   initialData,
   isLoading,
   readOnly = false
+  , serverError = '',
+  clearServerError = () => {},
+  serverFieldErrors = {},
+  clearServerFieldErrors = () => {}
 }) {
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({});
@@ -59,19 +63,26 @@ export default function TratamientoModal({
   const areaOptions = useMemo(() => AREAS_PERMITIDAS, []);
 
   useEffect(() => {
+    let timer;
     if (initialData) {
-      setFormData({
+      const next = {
         area: initialData.area || '',
         nombre: initialData.nombre || '',
         precio: initialData.precio !== undefined && initialData.precio !== null ? String(initialData.precio) : '',
         descripcion: initialData.descripcion || ''
-      });
-      setErrors({});
-      return;
+      };
+      timer = setTimeout(() => {
+        setFormData(next);
+        setErrors({});
+      }, 0);
+    } else {
+      timer = setTimeout(() => {
+        setFormData(initialFormState);
+        setErrors({});
+      }, 0);
     }
 
-    setFormData(initialFormState);
-    setErrors({});
+    return () => clearTimeout(timer);
   }, [initialData, isOpen]);
 
   const validateForm = () => {
@@ -83,13 +94,18 @@ export default function TratamientoModal({
 
     if (!formData.nombre.trim()) {
       nextErrors.nombre = 'El nombre es obligatorio';
+    } else if (formData.nombre.trim().length < 2 || formData.nombre.trim().length > 64) {
+      nextErrors.nombre = 'El nombre debe tener entre 2 y 64 caracteres';
     }
 
-    if (!formData.precio.trim()) {
+    const precioRaw = String(formData.precio || '').trim();
+    const precioClean = precioRaw.replace(',', '.');
+
+    if (!precioRaw) {
       nextErrors.precio = 'El precio es obligatorio';
-    } else if (!/^\d+(\.\d{1,2})?$/.test(formData.precio.trim())) {
-      nextErrors.precio = 'El precio debe ser un número válido';
-    } else if (Number(formData.precio) <= 0) {
+    } else if (!/^\d+(\.\d{1,2})?$/.test(precioClean)) {
+      nextErrors.precio = 'El precio debe ser un número válido (hasta 2 decimales)';
+    } else if (Number(precioClean) <= 0) {
       nextErrors.precio = 'El precio debe ser mayor a 0';
     }
 
@@ -115,17 +131,34 @@ export default function TratamientoModal({
         [name]: ''
       }));
     }
+    if (serverError) clearServerError();
+    if (serverFieldErrors && serverFieldErrors[name]) {
+      clearServerFieldErrors(name);
+    }
   };
+
+  // Apply server field errors into local errors when they arrive
+  useEffect(() => {
+    let timer;
+    if (serverFieldErrors && Object.keys(serverFieldErrors).length > 0) {
+      timer = setTimeout(() => {
+        setErrors((prev) => ({ ...prev, ...serverFieldErrors }));
+      }, 0);
+    }
+    return () => clearTimeout(timer);
+  }, [serverFieldErrors]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
     if (!validateForm()) return;
 
+    const precioClean = String(formData.precio || '').trim().replace(',', '.');
+
     onSubmit({
       area: formData.area.trim(),
       nombre: formData.nombre.trim(),
-      precio: Number(formData.precio),
+      precio: Number(precioClean),
       descripcion: formData.descripcion.trim() || null
     });
   };
@@ -141,6 +174,11 @@ export default function TratamientoModal({
         </div>
 
         <form className={`tratamiento-form ${readOnly ? 'tratamiento-form--readonly' : ''}`} onSubmit={handleSubmit}>
+          {serverError && (
+            <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+              {serverError}
+            </div>
+          )}
           {readOnly ? (
             <>
               <ReadRow label="Nombre:" value={formData.nombre} />

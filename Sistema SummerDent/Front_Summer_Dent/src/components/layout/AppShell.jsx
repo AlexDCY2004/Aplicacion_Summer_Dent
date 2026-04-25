@@ -35,14 +35,6 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">
-        <div className="sidebar-brand">
-          <img src={logoImage} alt="Logo Summer Dent" className="sidebar-brand__logo" />
-          <div>
-            <h2>Summer Dent</h2>
-            <p>Sistema de Gestion Dental</p>
-          </div>
-        </div>
-
         <nav className="sidebar-nav">
           {navItems.map((item) => {
             const isActive = location.pathname === item.to;
@@ -52,9 +44,17 @@ export default function AppShell() {
                 key={item.to}
                 to={item.to}
                 className={isActive ? 'nav-link nav-link--active' : 'nav-link'}
+                onClick={() => {
+                  // remove focus after navigation so sidebar collapses when mouse leaves
+                  try {
+                    if (document && document.activeElement) document.activeElement.blur();
+                  } catch {
+                    /* ignore */
+                  }
+                }}
               >
                 <Icon type={item.icon} />
-                {item.label}
+                <span className="nav-label">{item.label}</span>
               </Link>
             );
           })}
@@ -63,13 +63,15 @@ export default function AppShell() {
 
       <section className="app-shell__content">
         <header className="app-shell__header">
-          <div className="header-title">
-            <strong>Bienvenido/a</strong>
+          <div className="header-brand">
+            <img src={logoImage} alt="Logo Summer Dent" className="header-brand__logo" />
+            <div>
+              <h2>Summer Dent</h2>
+            </div>
           </div>
           <div className="header-user-block">
             <div className="header-user-info">
               <span>{user?.nombre || 'Secretaria Principal'}</span>
-              <small>({user?.rol || 'Secretaria'})</small>
             </div>
             <button type="button" onClick={logout} className="logout-btn">
               Cerrar sesión

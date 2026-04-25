@@ -49,16 +49,19 @@ const getInitialTratamientoIds = (initialData, tratamientos) => {
   return [...ids];
 };
 
-const getInitialFormData = (initialData, tratamientos) => ({
-  id_paciente: initialData?.id_paciente ? String(initialData.id_paciente) : '',
-  id_doctor: initialData?.id_doctor ? String(initialData.id_doctor) : '',
-  tratamientos: getInitialTratamientoIds(initialData, tratamientos),
-  fecha: initialData?.fecha ? String(initialData.fecha).split('T')[0] : '',
-  hora_inicio: initialData?.hora_inicio || '',
-  hora_fin: initialData?.hora_fin || '',
-  precio: initialData?.precio !== undefined && initialData?.precio !== null ? String(initialData.precio) : '0.00',
-  estado: initialData?.estado || 'pendiente'
-});
+const getInitialFormData = (initialData, tratamientos) => {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id_paciente: initialData?.id_paciente ? String(initialData.id_paciente) : '',
+    id_doctor: initialData?.id_doctor ? String(initialData.id_doctor) : '',
+    tratamientos: getInitialTratamientoIds(initialData, tratamientos),
+    fecha: initialData?.fecha ? String(initialData.fecha).split('T')[0] : today,
+    hora_inicio: initialData?.hora_inicio || '',
+    hora_fin: initialData?.hora_fin || '',
+    precio: initialData?.precio !== undefined && initialData?.precio !== null ? String(initialData.precio) : '0.00',
+    estado: initialData?.estado || 'pendiente'
+  };
+};
 
 const getInitialPacienteQuery = (initialData, pacientes) => {
   if (!initialData?.id_paciente) return '';
@@ -175,6 +178,17 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
       newErrors.tratamientos = 'Debe seleccionar al menos un tratamiento';
     }
     if (!formData.fecha) newErrors.fecha = 'Fecha requerida';
+    else {
+      // bloquear fechas anteriores a hoy
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        if (String(formData.fecha) < today) {
+          newErrors.fecha = 'La fecha no puede ser anterior a hoy';
+        }
+      } catch {
+        // ignore parsing errors, other validations will catch invalid formats
+      }
+    }
     if (!formData.hora_inicio) newErrors.hora_inicio = 'Hora inicio requerida';
     if (!formData.hora_fin) newErrors.hora_fin = 'Hora fin requerida';
     
@@ -255,6 +269,11 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
   return (
     <div className="modal-overlay">
       <div className="modal-content modal-content--large" onClick={(e) => e.stopPropagation()}>
+        {displayErrors._form && (
+          <div style={{ padding: '0 1.25rem', marginTop: '0.75rem' }}>
+            <div className="alert alert-error">{displayErrors._form}</div>
+          </div>
+        )}
         <div className="modal-header">
           <h2>{readOnly ? 'Ver Cita' : (initialData?.id ? 'Editar Cita' : 'Nueva Cita')}</h2>
           <button type="button" className="modal-close" onClick={onClose}>✕</button>

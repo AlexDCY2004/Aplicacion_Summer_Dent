@@ -64,6 +64,7 @@ export default function DashboardPage() {
   ];
 
   const nextAppointments = data?.appointments ?? [];
+  const todaysAppointments = data?.todaysAppointments ?? [];
 
   if (isError) {
     return (
@@ -121,6 +122,38 @@ export default function DashboardPage() {
       </div>
 
       <div className="dashboard-panels">
+        <article className="panel-card">
+          <h3>Citas de Hoy</h3>
+
+          <div className="appointments-list">
+            {isLoading ? (
+              <LoadingState lines={3} />
+            ) : todaysAppointments.length === 0 ? (
+              <p className="dashboard-empty">No hay citas para hoy.</p>
+            ) : (
+              todaysAppointments.map((appointment) => (
+                <div key={`today-${appointment.id}`} className="appointment-item">
+                  <div>
+                    <p className="appointment-id">Paciente ID: {appointment.id}</p>
+                    <span>
+                      {appointment.date} - {appointment.start} a {appointment.end}
+                    </span>
+                  </div>
+                  <span
+                    className={
+                      appointment.status === 'confirmada'
+                        ? 'appointment-status appointment-status--ok'
+                        : 'appointment-status appointment-status--pending'
+                    }
+                  >
+                    {appointment.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </article>
+
         <article className="panel-card">
           <h3>Próximas Citas</h3>
 

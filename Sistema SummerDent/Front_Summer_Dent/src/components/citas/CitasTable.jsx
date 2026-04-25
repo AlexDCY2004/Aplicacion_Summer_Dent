@@ -1,5 +1,27 @@
 import { Eye, Edit2, Trash2 } from 'lucide-react';
 
+const formatLocalDate = (dateValue) => {
+  if (!dateValue) return '-';
+  try {
+    const raw = String(dateValue).split('T')[0];
+    const parts = raw.split('-');
+    if (parts.length === 3) {
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      const dateObj = new Date(y, m, d);
+      return dateObj.toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+  } catch {
+    // fallback
+  }
+  try {
+    return new Date(dateValue).toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  } catch {
+    return '-';
+  }
+};
+
 const getEstadoBadgeClass = (estado) => {
   switch (estado?.toLowerCase()) {
     case 'confirmada':
@@ -102,15 +124,7 @@ export default function CitasTable({ citas, pacientes = [], doctores = [], trata
             
             return (
               <tr key={cita.id}>
-                <td>
-                  {cita.fecha
-                    ? new Date(cita.fecha).toLocaleDateString('es-EC', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                      })
-                    : '-'}
-                </td>
+                <td>{formatLocalDate(cita.fecha)}</td>
                 <td>{cita.hora_inicio || '-'}</td>
                 <td>{cita.hora_fin || '-'}</td>
                 <td>

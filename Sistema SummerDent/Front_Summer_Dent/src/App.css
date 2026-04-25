@@ -148,69 +148,93 @@ p {
   font-weight: 500;
 }
 
+
+/* Collapsible sidebar: show icons only by default, expand on hover */
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 315px 1fr;
+  /* collapsed sidebar width + main */
+  grid-template-columns: 72px 1fr;
   background: #f7f1de;
 }
 
+
 .app-shell__sidebar {
   border-right: 1px solid #e6d8b0;
-  padding: 1.1rem 1rem 1.4rem;
+  /* reduce top padding so icons appear higher */
+  padding: 0.4rem 0.6rem 1rem;
   background: linear-gradient(135deg, #1b2638 0%, #223149 48%, #2d405c 100%);
   color: #ffffff;
   display: grid;
-  gap: 1.05rem;
-  align-content: start;
-}
-
-.sidebar-brand {
-  display: flex;
-  align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.8rem 0.2rem 0.75rem;
-  border-bottom: 1px solid #e6d8b0;
+  align-content: start;
+  transition: width 180ms ease, padding 180ms ease, grid-template-columns 180ms ease;
+  position: relative;
+  overflow: visible;
 }
 
-.sidebar-brand__logo {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  margin-top: 0.1rem;
+/* Expand sidebar on hover to show full labels (do not expand on focus-within) */
+.app-shell__sidebar:hover {
+  padding: 1.1rem 1rem 1.4rem;
+  width: 315px; /* expand visually */
+  z-index: 50;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.header-brand__logo {
+  width: 44px;
+  height: 44px;
   object-fit: cover;
-  display: block;
-}
-
-.sidebar-brand h2 {
-  margin: 0;
-  margin-top: -0.12rem;
-  color: #c79000;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.sidebar-brand p {
-  margin: 0;
-  color: #ffffff;
-  font-size: 1rem;
+  border-radius: 6px;
+  /* blue background behind logo to match sidebar */
+  background: #223149;
+  padding: 6px;
 }
 
 .sidebar-nav {
   display: grid;
   gap: 0.35rem;
+  /* position icons to start where header-brand block ends */
+  margin-top: calc(var(--header-height, 72px) - 12px);
 }
 
 .nav-link {
   color: #ffffff;
   text-decoration: none;
-  padding: 0.78rem 0.95rem;
-  border-radius: 12px;
+  padding: 0.6rem 0.6rem;
+  border-radius: 10px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 0.78rem;
-  font-size: 1rem;
+  gap: 0.9rem;
+  font-size: 0.98rem;
+  transition: background 120ms ease, color 120ms ease, padding 120ms ease;
+}
+
+/* center icons when collapsed and hide labels */
+.nav-link svg {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.nav-label {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 0;
+  opacity: 0;
+  transition: max-width 180ms ease, opacity 180ms ease;
+}
+
+.app-shell__sidebar:hover .nav-label {
+  max-width: 240px;
+  opacity: 1;
 }
 
 .nav-link:hover {
@@ -238,6 +262,8 @@ p {
   align-items: center;
   justify-content: space-between;
   padding: 1.1rem 1.9rem;
+  /* expose header height for sidebar alignment */
+  --header-height: 72px;
   border-bottom: 1px solid #d9e0eb;
   background: #ffffff;
 }
