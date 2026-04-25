@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPacientes, createPaciente, updatePaciente, deletePaciente } from '../../services/api/pacientes';
 import PacientesTable from '../../components/pacientes/PacientesTable';
@@ -15,6 +16,10 @@ export default function PacientesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [modalFieldErrors, setModalFieldErrors] = useState({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const { data: pacientes = [], isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['pacientes'],
@@ -44,16 +49,30 @@ export default function PacientesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeletePaciente = async (paciente) => {
-    if (confirm(`¿Eliminar a ${paciente.nombre} ${paciente.apellido}?`)) {
-      try {
-        await deletePaciente(paciente.id_cedula);
-        queryClient.invalidateQueries({ queryKey: ['pacientes'] });
-      } catch (err) {
-        const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || JSON.stringify(err?.response?.data) || 'Error al eliminar el paciente';
-        setError(errMsg);
-        console.error('Error deleting paciente:', err);
+  const handleDeletePaciente = (paciente) => {
+    setPendingDelete(paciente);
+    setConfirmError('');
+    setConfirmOpen(true);
+  };
+
+  const confirmDeletePaciente = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      await deletePaciente(pendingDelete.id_cedula);
+      queryClient.invalidateQueries({ queryKey: ['pacientes'] });
+      setConfirmOpen(false);
+      setPendingDelete(null);
+    } catch (err) {
+      const raw = err?.response?.data?.error || err?.response?.data?.message || err?.message || JSON.stringify(err?.response?.data) || 'Error al eliminar el paciente';
+      let friendly = 'No se pudo eliminar el paciente.';
+      if (String(raw).toLowerCase().includes('foreign key') || String(raw).toLowerCase().includes('violates')) {
+        friendly = 'No se puede eliminar el paciente porque está en uso en otras entidades.';
       }
+      setConfirmError(friendly);
+      console.error('Error deleting paciente:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -177,6 +196,14 @@ export default function PacientesPage() {
         readOnly={modalMode === 'view'}
         isEditing={modalMode === 'edit'}
         externalErrors={modalFieldErrors}
+      />
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Eliminar Paciente"
+        message={confirmError || `¿Eliminar a ${pendingDelete?.nombre || ''} ${pendingDelete?.apellido || ''}?`}
+        onConfirm={confirmDeletePaciente}
+        onCancel={() => { setConfirmOpen(false); setPendingDelete(null); setConfirmError(''); }}
+        isLoading={isDeleting}
       />
     </div>
   );

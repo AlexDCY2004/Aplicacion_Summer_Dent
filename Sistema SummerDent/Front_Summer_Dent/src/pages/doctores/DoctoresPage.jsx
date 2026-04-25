@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createDoctor, deleteDoctor, fetchDoctores, updateDoctor } from '../../services/api/doctores';
 import DoctoresTable from '../../components/doctores/DoctoresTable';
@@ -13,6 +14,10 @@ export default function DoctoresPage() {
   const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const { data: doctores = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['doctores'],
@@ -53,15 +58,29 @@ export default function DoctoresPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteDoctor = async (doctor) => {
-    const confirmDelete = window.confirm(`¿Eliminar al odontólogo ${doctor.nombre}?`);
-    if (!confirmDelete) return;
+  const handleDeleteDoctor = (doctor) => {
+    setPendingDelete(doctor);
+    setConfirmError('');
+    setConfirmOpen(true);
+  };
 
+  const confirmDeleteDoctor = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteDoctor(doctor.id);
+      await deleteDoctor(pendingDelete.id);
       queryClient.invalidateQueries({ queryKey: ['doctores'] });
+      setConfirmOpen(false);
+      setPendingDelete(null);
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'No se pudo eliminar el odontólogo.');
+      const raw = error.response?.data?.error || String(error.message || 'Error');
+      let friendly = 'No se pudo eliminar el odontólogo.';
+      if (raw.toLowerCase().includes('violates foreign key') || raw.toLowerCase().includes('foreign key constraint')) {
+        friendly = 'No se puede eliminar el odontólogo porque está en uso en otras entidades.';
+      }
+      setConfirmError(friendly);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -148,6 +167,14 @@ export default function DoctoresPage() {
         initialData={selectedDoctor}
         isLoading={isSaving}
         readOnly={isViewMode}
+      />
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Eliminar Odontólogo"
+        message={confirmError || `¿Eliminar al odontólogo "${pendingDelete?.nombre || ''}"?`}
+        onConfirm={confirmDeleteDoctor}
+        onCancel={() => { setConfirmOpen(false); setPendingDelete(null); setConfirmError(''); }}
+        isLoading={isDeleting}
       />
     </div>
   );

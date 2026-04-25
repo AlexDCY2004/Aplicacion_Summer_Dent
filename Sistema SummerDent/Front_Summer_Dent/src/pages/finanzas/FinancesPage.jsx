@@ -41,7 +41,7 @@ const getDoctorLabel = (movimiento) => {
   return '-';
 };
 
-const getMovementSign = (tipo) => (tipo === 'egreso' ? '-' : '+');
+//const getMovementSign = (tipo) => (tipo === 'egreso' ? '-' : '+');
 
 const getMovementClass = (tipo) => (tipo === 'egreso' ? 'movement-row--expense' : 'movement-row--income');
 
@@ -353,7 +353,6 @@ export default function FinancesPage() {
             <table className="finance-history-table">
               <thead>
                 <tr>
-                  <th>Fecha</th>
                   <th>Doctor</th>
                   <th>Tipo</th>
                   <th>Monto</th>
@@ -364,7 +363,6 @@ export default function FinancesPage() {
               <tbody>
                 {filteredMovimientos.map((movimiento) => (
                   <tr key={movimiento.id} className={getMovementClass(movimiento.tipo)}>
-                    <td>{formatDate(movimiento.fecha)}</td>
                     <td>{getDoctorLabel(movimiento)}</td>
                     <td>
                       <span className={`finance-type-badge ${getTypeBadgeClass(movimiento.tipo)}`}>

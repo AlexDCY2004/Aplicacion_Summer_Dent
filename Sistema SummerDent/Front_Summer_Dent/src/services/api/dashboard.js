@@ -42,10 +42,27 @@ export async function fetchDashboardSnapshot() {
   const balance = totalIngresos - totalEgresos;
 
   const upcomingAppointments = citas
-    .filter((item) => String(item?.fecha || '') >= today)
+    // only appointments after today (exclude today's appointments)
+    .filter((item) => String(item?.fecha || '') > today)
     .sort((a, b) => {
       const aKey = `${a?.fecha || ''} ${a?.hora_inicio || ''}`;
       const bKey = `${b?.fecha || ''} ${b?.hora_inicio || ''}`;
+      return aKey.localeCompare(bKey);
+    })
+    .slice(0, 6)
+    .map((item) => ({
+      id: item?.id,
+      date: item?.fecha || today,
+      start: trimTime(item?.hora_inicio),
+      end: trimTime(item?.hora_fin),
+      status: normalizeStatus(item?.estado)
+    }));
+
+  const todaysAppointments = citas
+    .filter((item) => String(item?.fecha || '') === today)
+    .sort((a, b) => {
+      const aKey = `${a?.hora_inicio || ''}`;
+      const bKey = `${b?.hora_inicio || ''}`;
       return aKey.localeCompare(bKey);
     })
     .slice(0, 6)
@@ -65,6 +82,7 @@ export async function fetchDashboardSnapshot() {
       balance
     },
     appointments: upcomingAppointments,
+    todaysAppointments: todaysAppointments,
     financial: {
       ingresosMes: totalIngresos,
       egresosMes: totalEgresos

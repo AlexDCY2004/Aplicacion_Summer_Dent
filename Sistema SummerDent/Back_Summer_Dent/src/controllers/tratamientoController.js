@@ -9,8 +9,6 @@ const AREAS_PERMITIDAS = [
   'Prótesis Removible Valplast o Flexible',
   'Acrílicas'
 ];
-const nombreRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ]+(?:[ '\-][A-Za-zÁÉÍÓÚáéíóúÑñ]+)*$/;
-
 const esIdValido = (id) => /^\d+$/.test(String(id || '').trim()) && Number(String(id).trim()) > 0;
 
 const esTextoValido = (valor, min, max) => {
@@ -19,10 +17,6 @@ const esTextoValido = (valor, min, max) => {
   return limpio.length >= min && limpio.length <= max;
 };
 
-const esNombreValido = (nombre) => {
-  if (typeof nombre !== 'string') return false;
-  return nombreRegex.test(nombre.trim());
-};
 
 const esAreaValida = (area) => {
   if (typeof area !== 'string') return false;
@@ -33,7 +27,8 @@ const esAreaValida = (area) => {
 const esPrecioValido = (precio) => {
   if (precio === undefined || precio === null || precio === '') return false;
   const limpio = String(precio).trim();
-  if (!/^\d+$/.test(limpio)) return false;
+  // Allow decimals with up to 2 decimal places (e.g. 123, 123.4, 123.45)
+  if (!/^\d+(\.\d{1,2})?$/.test(limpio)) return false;
   const valor = Number(limpio);
   if (!Number.isFinite(valor)) return false;
   if (valor <= 0 || valor > 99999999) return false;
@@ -81,8 +76,7 @@ export const crearTratamientoController = async (req, res) => {
 
     if (!esAreaValida(area)) return res.status(400).json({ error: `El área es inválida. Debe ser una de: ${AREAS_PERMITIDAS.join(', ')}` });
     if (!esTextoValido(nombre, 2, 64)) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 64 caracteres' });
-    if (!esNombreValido(nombre)) return res.status(400).json({ error: 'El nombre solo debe contener letras y espacios' });
-    if (!esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe contener solo numeros enteros positivos' });
+    if (!esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe ser un número positivo (puede tener decimales)' });
     if (!esDescripcionValida(descripcion)) return res.status(400).json({ error: 'La descripción no debe exceder 300 caracteres' });
 
     const { data, error } = await supabaseUser.from('tratamiento').insert([{
@@ -164,8 +158,7 @@ export const actualizarTratamientoController = async (req, res) => {
 
     if (area !== undefined && area !== null && !esAreaValida(area)) return res.status(400).json({ error: `El área es inválida. Debe ser una de: ${AREAS_PERMITIDAS.join(', ')}` });
     if (nombre !== undefined && !esTextoValido(String(nombre), 2, 64)) return res.status(400).json({ error: 'El nombre debe tener entre 2 y 64 caracteres' });
-    if (nombre !== undefined && !esNombreValido(String(nombre))) return res.status(400).json({ error: 'El nombre solo debe contener letras y espacios' });
-    if (precio !== undefined && !esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe contener solo numeros enteros positivos' });
+    if (precio !== undefined && !esPrecioValido(precio)) return res.status(400).json({ error: 'El precio debe ser un número positivo (puede tener decimales)' });
     if (descripcion !== undefined && !esDescripcionValida(descripcion)) return res.status(400).json({ error: 'La descripción no debe exceder 300 caracteres' });
 
     const { data: existing, error: fetchErr } = await supabaseUser.from('tratamiento').select('id').eq('id', id).maybeSingle();

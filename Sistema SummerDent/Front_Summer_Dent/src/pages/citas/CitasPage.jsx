@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCitas, createCita, updateCita, deleteCita } from '../../services/api/citas';
 import { fetchPacientes } from '../../services/api/pacientes';
@@ -26,6 +27,10 @@ export default function CitasPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [serverFormErrors, setServerFormErrors] = useState({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const { data: citas = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['citas'],
@@ -84,18 +89,31 @@ export default function CitasPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteCita = async (cita) => {
-    const pacienteNombre = getPacienteNombre(cita, pacientes) !== '-' ? getPacienteNombre(cita, pacientes) : 'Paciente';
-    const fechaFormato = cita.fecha ? new Date(cita.fecha).toLocaleDateString('es-EC') : '';
-    
-    if (confirm(`¿Eliminar cita de ${pacienteNombre} del ${fechaFormato}?`)) {
-      try {
-        await deleteCita(cita.id);
-        queryClient.invalidateQueries({ queryKey: ['citas'] });
-      } catch (err) {
-        setError('Error al eliminar la cita');
-        console.error(err);
+  const handleDeleteCita = (cita) => {
+    setPendingDelete(cita);
+    setConfirmError('');
+    setConfirmOpen(true);
+  };
+
+  const confirmDeleteCita = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteCita(pendingDelete.id);
+      queryClient.invalidateQueries({ queryKey: ['citas'] });
+      setConfirmOpen(false);
+      setPendingDelete(null);
+    } catch (err) {
+      const raw = err?.response?.data?.error || err?.message || '';
+      let friendly = 'Error al eliminar la cita';
+      if (String(raw).toLowerCase().includes('foreign key') || String(raw).toLowerCase().includes('violates')) {
+        friendly = 'No se puede eliminar la cita porque está en uso.';
       }
+      setConfirmError(friendly);
+      setError(friendly);
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -215,6 +233,14 @@ export default function CitasPage() {
         readOnly={modalMode === 'view'}
         isEditing={modalMode === 'edit'}
         externalErrors={serverFormErrors}
+      />
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Eliminar Cita"
+        message={confirmError || `¿Eliminar la cita de ${getPacienteNombre(pendingDelete || {}, pacientes)}?`}
+        onConfirm={confirmDeleteCita}
+        onCancel={() => { setConfirmOpen(false); setPendingDelete(null); setConfirmError(''); }}
+        isLoading={isDeleting}
       />
     </div>
   );

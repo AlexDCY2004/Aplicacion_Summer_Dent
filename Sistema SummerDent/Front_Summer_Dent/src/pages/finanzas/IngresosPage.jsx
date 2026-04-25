@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createMovimientoFinanzas,
@@ -6,6 +7,7 @@ import {
   fetchIngresos,
   updateMovimientoFinanzas
 } from '../../services/api/movimientoFinanzas';
+import { fetchDoctores } from '../../services/api/doctores';
 import ErrorState from '../../components/feedback/ErrorState';
 
 const initialFormState = {
@@ -64,10 +66,19 @@ export default function IngresosPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState(initialFormState);
   const [formErrors, setFormErrors] = useState({});
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const { data: ingresos = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['ingresos'],
     queryFn: () => fetchIngresos()
+  });
+
+  const { data: doctores = [], isLoading: isDoctoresLoading } = useQuery({
+    queryKey: ['doctores'],
+    queryFn: fetchDoctores
   });
 
   const totalIngresos = useMemo(
@@ -117,15 +128,30 @@ export default function IngresosPage() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteIngreso = async (ingreso) => {
-    const confirmDelete = window.confirm(`¿Eliminar el ingreso de ${formatCurrency(ingreso.monto)}?`);
-    if (!confirmDelete) return;
+  const handleDeleteIngreso = (ingreso) => {
+    setPendingDelete(ingreso);
+    setConfirmError('');
+    setConfirmOpen(true);
+  };
 
+  const confirmDeleteIngreso = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteMovimientoFinanzas(ingreso.id);
+      await deleteMovimientoFinanzas(pendingDelete.id);
       queryClient.invalidateQueries({ queryKey: ['ingresos'] });
+      setConfirmOpen(false);
+      setPendingDelete(null);
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'No se pudo eliminar el ingreso.');
+      const raw = error.response?.data?.error || error.message || '';
+      let friendly = 'No se pudo eliminar el ingreso.';
+      if (String(raw).toLowerCase().includes('foreign key') || String(raw).toLowerCase().includes('violates')) {
+        friendly = 'No se puede eliminar el ingreso porque está en uso.';
+      }
+      setConfirmError(friendly);
+      setErrorMessage(friendly);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -293,9 +319,7 @@ export default function IngresosPage() {
           <table className="ingresos-table">
             <thead>
               <tr>
-                <th>Fecha</th>
                 <th>Doctor</th>
-                <th>Tipo</th>
                 <th>Monto</th>
                 <th>Descripción</th>
                 <th>Fecha Registro</th>
@@ -305,13 +329,7 @@ export default function IngresosPage() {
             <tbody>
               {filteredIngresos.map((ingreso) => (
                 <tr key={ingreso.id}>
-                  <td>{formatDate(ingreso.fecha)}</td>
                   <td>{getDoctorLabel(ingreso)}</td>
-                  <td>
-                    <span className="finance-type-badge finance-type-badge--income">
-                      {ingreso.tipo || 'ingreso'}
-                    </span>
-                  </td>
                   <td className="finance-amount">{formatCurrency(ingreso.monto)}</td>
                   <td className="finance-description">{ingreso.descripcion || '-'}</td>
                   <td>{formatDate(ingreso.created_at)}</td>
@@ -364,15 +382,20 @@ export default function IngresosPage() {
                 <>
                   <div className="form-row">
                     <div className="form-group">
-                      <label htmlFor="id_doctor">Id Doctor</label>
-                      <input
+                      <label htmlFor="id_doctor">Doctor</label>
+                      <select
                         id="id_doctor"
                         name="id_doctor"
-                        type="number"
                         value={formData.id_doctor}
                         onChange={handleFormChange}
-                        placeholder="1"
-                      />
+                        disabled={isDoctoresLoading}
+                      >
+                        <option value="">No especificado</option>
+                        {doctores.map((doc) => (
+                          <option key={doc.id} value={String(doc.id)}>{doc.nombre}</option>
+                        ))}
+                      </select>
+                      {isDoctoresLoading && <div className="hint">Cargando doctores...</div>}
                     </div>
                     <div className="form-group">
                       <label htmlFor="fecha">Fecha</label>
@@ -433,6 +456,15 @@ export default function IngresosPage() {
           </div>
         </div>
       )}
+
+            <ConfirmModal
+              isOpen={confirmOpen}
+              title="Eliminar Ingreso"
+              message={confirmError || `¿Eliminar el ingreso de ${formatCurrency(pendingDelete?.monto || 0)}?`}
+              onConfirm={confirmDeleteIngreso}
+              onCancel={() => { setConfirmOpen(false); setPendingDelete(null); setConfirmError(''); }}
+              isLoading={isDeleting}
+            />
     </div>
   );
 }

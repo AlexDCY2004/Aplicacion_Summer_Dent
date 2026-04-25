@@ -1,12 +1,22 @@
 import { useMemo, useState } from 'react';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchProductos, updateProducto } from '../../services/api/productos';
+import { fetchProductos, updateProducto, createProducto } from '../../services/api/productos';
 import { fetchInventarios, registrarMovimientoInventario } from '../../services/api/inventario';
 import ErrorState from '../../components/feedback/ErrorState';
 import InventarioModal from '../../components/inventario/InventarioModal';
 
 const formatDate = (value) => {
   if (!value) return '-';
+
+  // If value is date-only string like 'YYYY-MM-DD', construct a local Date
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('es-EC', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('es-EC', {
@@ -16,11 +26,35 @@ const formatDate = (value) => {
   });
 };
 
-const toDateInputValue = (value) => {
+const formatCurrency = (value) => {
+  if (value === undefined || value === null || value === '') return '-';
+  const raw = Number(value);
+  if (Number.isNaN(raw)) return '-';
+  // normalize to 2 decimals to avoid floating point artifacts (e.g. 19.9999999)
+  const num = Math.round(raw * 100) / 100;
+  return new Intl.NumberFormat('es-EC', { style: 'currency', currency: 'USD' }).format(num);
+};
+
+/*const toDateInputValue = (value) => {
   if (!value) return '';
+
+  // If it's a date-only string, return as-is
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  // Build YYYY-MM-DD from local date parts to avoid UTC shift
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};*/
+
+const getUpdateDate = (inventario) => {
+  // prefer explicit fecha_actualizacion, then updated_at, then created_at; otherwise return null
+  return inventario?.fecha_actualizacion || inventario?.updated_at || inventario?.created_at || null;
 };
 
 const getProductName = (inventario) => {
@@ -64,12 +98,17 @@ const buildAlertSummary = (inventoryList) => {
 export default function InventarioPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedInventario, setSelectedInventario] = useState(null);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [movementConfirmOpen, setMovementConfirmOpen] = useState(false);
+  const [pendingMovementInventario, setPendingMovementInventario] = useState(null);
+  const [pendingMovementQty, setPendingMovementQty] = useState(0);
+  const [movementIsSaving, setMovementIsSaving] = useState(false);
+  const [movementError, setMovementError] = useState('');
 
   const { data: inventarios = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['inventario'],
@@ -89,7 +128,7 @@ export default function InventarioPage() {
     return inventarios.filter((item) => {
       const status = getStatus(item.stock_producto, item.stock_minimo);
       const matchesStatus = statusFilter === 'todos' || status === statusFilter;
-      const matchesDate = !dateFilter || toDateInputValue(item.fecha_actualizacion) === dateFilter;
+      const matchesDate = true;
 
       const searchableFields = [
         getProductName(item),
@@ -108,48 +147,59 @@ export default function InventarioPage() {
 
       return matchesStatus && matchesDate && matchesSearch;
     });
-  }, [dateFilter, inventarios, searchTerm, statusFilter]);
+  }, [inventarios, searchTerm, statusFilter]);
 
   const openCreateModal = () => {
     setSelectedInventario(null);
+    setIsViewMode(false);
     setErrorMessage('');
     setIsModalOpen(true);
   };
 
   const openEditModal = (inventario) => {
     setSelectedInventario(inventario);
+    setIsViewMode(false);
     setErrorMessage('');
     setIsModalOpen(true);
   };
 
   const handleViewInventario = (inventario) => {
-    window.alert(
-      `Inventario #${inventario.id}\n`
-      + `Producto: ${getProductName(inventario)}\n`
-      + `Id Producto: ${inventario.id_producto || '-'}\n`
-      + `Id Perfil: ${inventario.id_perfil || '-'}\n`
-      + `Cantidad Actual: ${inventario.stock_producto ?? 0}\n`
-      + `Stock Mínimo: ${inventario.stock_minimo ?? 0}\n`
-      + `Fecha Actualización: ${formatDate(inventario.fecha_actualizacion)}\n`
-      + `Fecha Registro: ${formatDate(inventario.created_at)}`
-    );
+    setSelectedInventario(inventario);
+    setIsViewMode(true);
+    setErrorMessage('');
+    setIsModalOpen(true);
   };
 
   const handleRegisterMovement = async (inventario) => {
-    const movementQty = Number(window.prompt(`Cantidad a registrar para ${getProductName(inventario)}:`, '1'));
-    if (!Number.isFinite(movementQty) || movementQty <= 0) return;
+    // Open in-modal quantity input instead of native prompt
+    setPendingMovementInventario(inventario);
+    setPendingMovementQty(1);
+    setMovementError('');
+    setMovementConfirmOpen(true);
+  };
 
-    const movementType = window.confirm('Aceptar = Entrada, Cancelar = Salida') ? 'entrada' : 'salida';
-
+  const confirmMovementAs = async (type) => {
+    if (!pendingMovementInventario) return;
+    setMovementIsSaving(true);
     try {
+      const qty = Number(pendingMovementQty);
+      if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
+
       await registrarMovimientoInventario({
-        id_producto: inventario.id_producto,
-        tipo_movimiento: movementType,
-        cantidad: Math.floor(movementQty)
+        id_producto: pendingMovementInventario.id_producto,
+        tipo_movimiento: type,
+        cantidad: Math.floor(qty)
       });
+      // After movement, refresh cache from server so DB timestamps are authoritative
       queryClient.invalidateQueries({ queryKey: ['inventario'] });
+      setMovementConfirmOpen(false);
+      setPendingMovementInventario(null);
+      setPendingMovementQty(0);
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'No se pudo registrar el movimiento.');
+      const raw = error.response?.data?.error || error.message || '';
+      setMovementError(raw || 'No se pudo registrar el movimiento.');
+    } finally {
+      setMovementIsSaving(false);
     }
   };
 
@@ -158,28 +208,55 @@ export default function InventarioPage() {
     setErrorMessage('');
 
     try {
-      const productId = payload.id_producto;
-      const productData = productos.find((producto) => Number(producto.id) === Number(productId));
+      // If payload includes nombre and no id_producto, create product (backend will also create inventario)
+      if (!payload.id_producto && payload.nombre) {
+        const createPayload = {
+          nombre: payload.nombre,
+          descripcion: payload.descripcion || null,
+          categoria: payload.categoria || null,
+          stock_producto: payload.stock_producto !== undefined ? payload.stock_producto : 0,
+          stock_minimo: payload.stock_minimo !== undefined ? payload.stock_minimo : 0,
+          precio: payload.precio !== undefined && payload.precio !== '' ? Number(payload.precio).toFixed(2) : 0
+        };
 
-      if (!productData) {
-        throw new Error('No se encontró el producto seleccionado');
-      }
+        const res = await createProducto(createPayload);
+        // If registrarMovimiento requested after creation, register movement against created product
+        const createdProductId = res?.producto?.id || res?.inventario?.id_producto || res?.producto?.id_producto;
 
-      await updateProducto(productId, {
-        nombre: productData.nombre,
-        descripcion: productData.descripcion ?? null,
-        categoria: productData.categoria ?? null,
-        precio: productData.precio ?? 0,
-        stock_producto: payload.stock_producto,
-        stock_minimo: payload.stock_minimo
-      });
+        if (payload.registrarMovimiento && createdProductId) {
+          await registrarMovimientoInventario({
+            id_producto: createdProductId,
+            tipo_movimiento: payload.tipo_movimiento,
+            cantidad: payload.cantidad
+          });
+        }
+      } else {
+        const productId = payload.id_producto;
+        const productData = productos.find((producto) => Number(producto.id) === Number(productId));
 
-      if (payload.registrarMovimiento) {
-        await registrarMovimientoInventario({
-          id_producto: productId,
-          tipo_movimiento: payload.tipo_movimiento,
-          cantidad: payload.cantidad
-        });
+        if (!productData) {
+          throw new Error('No se encontró el producto seleccionado');
+        }
+
+        const updatePayload = {
+          nombre: payload.nombre ?? productData.nombre,
+          descripcion: payload.descripcion ?? productData.descripcion ?? null,
+          categoria: payload.categoria ?? productData.categoria ?? null,
+          precio: payload.precio !== undefined && payload.precio !== '' ? Number(payload.precio).toFixed(2) : (productData.precio ?? 0),
+          stock_producto: payload.stock_producto,
+          stock_minimo: payload.stock_minimo
+        };
+        console.log('Updating product', productId, updatePayload);
+        await updateProducto(productId, updatePayload);
+        
+
+        if (payload.registrarMovimiento) {
+          await registrarMovimientoInventario({
+            id_producto: productId,
+            tipo_movimiento: payload.tipo_movimiento,
+            cantidad: payload.cantidad
+          });
+        }
       }
 
       setIsModalOpen(false);
@@ -187,7 +264,10 @@ export default function InventarioPage() {
       queryClient.invalidateQueries({ queryKey: ['inventario'] });
       queryClient.invalidateQueries({ queryKey: ['productos'] });
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'No se pudo guardar el inventario.');
+      console.error('Error saving inventario:', error);
+      const serverMsg = error?.response?.data?.error || error?.response?.data || null;
+      const userMsg = serverMsg || error.message || 'No se pudo guardar el inventario.';
+      setErrorMessage(userMsg);
     } finally {
       setIsSaving(false);
     }
@@ -242,12 +322,7 @@ export default function InventarioPage() {
           />
         </div>
 
-        <input
-          type="date"
-          className="search-input inventario-date-input"
-          value={dateFilter}
-          onChange={(event) => setDateFilter(event.target.value)}
-        />
+        {/* date filter removed per user request */}
 
         <select
           className="search-input inventario-select"
@@ -293,6 +368,7 @@ export default function InventarioPage() {
             <thead>
               <tr>
                 <th>Producto</th>
+                <th>Precio</th>
                 <th className="inventario-col-center">Cantidad Actual</th>
                 <th className="inventario-col-center">Stock Mínimo</th>
                 <th>Última Actualización</th>
@@ -309,11 +385,24 @@ export default function InventarioPage() {
                     <td>
                       <span className="inventario-product-title">{getProductName(inventario)}</span>
                     </td>
+                    <td>
+                      {(() => {
+                        const raw = (
+                          inventario.precio !== undefined && inventario.precio !== null
+                            ? inventario.precio
+                            : inventario.producto?.precio
+                        );
+                        if (raw !== undefined && raw !== null && raw !== '') return formatCurrency(raw);
+                        const prodFromList = productos.find((p) => Number(p.id) === Number(inventario.id_producto));
+                        if (prodFromList && prodFromList.precio !== undefined && prodFromList.precio !== null && prodFromList.precio !== '') return formatCurrency(prodFromList.precio);
+                        return '-';
+                      })()}
+                    </td>
                     <td className={`inventario-col-center inventario-stock-value inventario-stock-value--${status}`}>
                       {inventario.stock_producto ?? 0}
                     </td>
                     <td className="inventario-col-center">{inventario.stock_minimo ?? 0}</td>
-                    <td>{formatDate(inventario.fecha_actualizacion)}</td>
+                    <td>{formatDate(getUpdateDate(inventario))}</td>
                     <td>
                       <span className={`inventory-status-badge inventory-status-badge--${status}`}>
                         {getStatusLabel(inventario.stock_producto, inventario.stock_minimo)}
@@ -372,12 +461,45 @@ export default function InventarioPage() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedInventario(null);
+          setIsViewMode(false);
         }}
         onSubmit={handleSubmit}
         initialData={selectedInventario}
         isLoading={isSaving}
         productos={productos}
+        readOnly={isViewMode}
       />
+      <ConfirmModal
+        isOpen={movementConfirmOpen}
+        title="Registrar Movimiento"
+        onConfirm={() => confirmMovementAs('entrada')}
+        onCancel={() => setMovementConfirmOpen(false)}
+        isLoading={movementIsSaving}
+        confirmLabel="Entrada"
+        cancelLabel="Cancelar"
+        hideFooter={true}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {movementError && <div style={{ color: 'var(--danger)', fontSize: '0.9rem' }}>{movementError}</div>}
+          <div>Registrar movimiento para: <strong>{getProductName(pendingMovementInventario || {})}</strong></div>
+          <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <span>Cantidad</span>
+            <input
+              type="number"
+              min="1"
+              value={pendingMovementQty}
+              onChange={(e) => setPendingMovementQty(e.target.value)}
+              style={{ width: '6rem', padding: '0.25rem' }}
+            />
+          </label>
+          <div className="cm-modal-actions">
+            <button type="button" className="cm-btn" onClick={() => setMovementConfirmOpen(false)} disabled={movementIsSaving}>Cancelar</button>
+            <button type="button" className="cm-btn cm-btn-confirm" onClick={() => confirmMovementAs('salida')} disabled={movementIsSaving}>Salida</button>
+            <button type="button" className="cm-btn cm-btn-cancel" onClick={() => confirmMovementAs('entrada')} disabled={movementIsSaving}>Entrada</button>
+          </div>
+
+        </div>
+      </ConfirmModal>
     </div>
   );
 }
