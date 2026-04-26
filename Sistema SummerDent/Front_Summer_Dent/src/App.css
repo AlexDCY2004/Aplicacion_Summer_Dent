@@ -168,7 +168,7 @@ p {
   display: grid;
   gap: 0.6rem;
   align-content: start;
-  transition: width 180ms ease, padding 180ms ease, grid-template-columns 180ms ease;
+  transition: width 1000ms ease, padding 1000ms ease, grid-template-columns 1000ms ease;
   position: relative;
   overflow: visible;
 }

@@ -15,26 +15,48 @@ const ReadRow = ({ label, value }) => (
   </div>
 );
 
-export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, isLoading, readOnly = false }) {
+export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, isLoading, readOnly = false, externalErrors = {}, externalError = '' }) {
   const [formData, setFormData] = useState(initialFormState);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    let timer;
+
     if (initialData) {
-      setFormData({
-        nombre: initialData.nombre || '',
-        telefono: initialData.telefono || '',
-        correo: initialData.correo || '',
-        especialidad: initialData.especialidad || '',
-        estado: initialData.estado || 'disponible'
-      });
-      setErrors({});
-      return;
+      timer = setTimeout(() => {
+        setFormData({
+          nombre: initialData.nombre || '',
+          telefono: initialData.telefono || '',
+          correo: initialData.correo || '',
+          especialidad: initialData.especialidad || '',
+          estado: initialData.estado || 'disponible'
+        });
+        setErrors({});
+      }, 0);
+
+      return () => clearTimeout(timer);
     }
 
-    setFormData(initialFormState);
-    setErrors({});
+    timer = setTimeout(() => {
+      setFormData(initialFormState);
+      setErrors({});
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [initialData, isOpen]);
+
+  // Merge backend field errors into local field errors.
+  useEffect(() => {
+    let timer;
+
+    if (externalErrors && Object.keys(externalErrors).length > 0) {
+      timer = setTimeout(() => {
+        setErrors((prev) => ({ ...prev, ...externalErrors }));
+      }, 0);
+    }
+
+    return () => clearTimeout(timer);
+  }, [externalErrors]);
 
   const validateForm = () => {
     const nextErrors = {};
@@ -45,7 +67,9 @@ export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, is
 
     if (!formData.telefono.trim()) {
       nextErrors.telefono = 'El teléfono es obligatorio';
-    } else if (!/^\d{10}$/.test(formData.telefono.trim())) {
+    } else if (!/^\d+$/.test(formData.telefono.trim())) {
+      nextErrors.telefono = 'El teléfono solo debe contener números';
+    } else if (formData.telefono.trim().length !== 10) {
       nextErrors.telefono = 'El teléfono debe tener 10 dígitos';
     }
 
@@ -55,6 +79,8 @@ export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, is
 
     if (!formData.especialidad.trim()) {
       nextErrors.especialidad = 'La especialidad es obligatoria';
+    } else if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(formData.especialidad.trim())) {
+      nextErrors.especialidad = 'La especialidad solo debe contener letras';
     }
 
     setErrors(nextErrors);
@@ -102,6 +128,11 @@ export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, is
         </div>
 
         <form onSubmit={handleSubmit} className={`doctor-form ${readOnly ? 'is-readonly' : ''}`}>
+          {!readOnly && externalError && (
+            <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+              {externalError}
+            </div>
+          )}
           {readOnly ? (
             <>
               <ReadRow label="Nombre:" value={formData.nombre} />
@@ -182,10 +213,10 @@ export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, is
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                <button type="button" className="btn btn-secondary btn-modal-cancel" onClick={onClose}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                <button type="submit" className="btn btn-primary btn-modal-save" disabled={isLoading}>
                   {isLoading ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
@@ -194,7 +225,7 @@ export default function DoctorModal({ isOpen, onClose, onSubmit, initialData, is
 
           {readOnly && (
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
+              <button type="button" className="btn btn-secondary btn-detail-close" onClick={onClose}>
                 Cerrar
               </button>
             </div>

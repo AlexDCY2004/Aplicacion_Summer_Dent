@@ -36,6 +36,7 @@
 
 .finance-total-card span {
   font-size: 0.95rem;
+  font-weight: 700;
   color: #64748b;
   margin-bottom: 1rem;
 }
@@ -47,11 +48,34 @@
 }
 
 .finance-total-card--income {
+  border: 1px solid #777777;
   background: #ecfbef;
 }
 
+.finance-total-card--income span {
+  color: #1d3354;
+}
+
 .finance-total-card--expense {
+  border: 1px solid #777777;
   background: #fff1f1;
+}
+
+.finance-total-card--balance {
+  border: 1px solid #777777;
+}
+
+.finance-total-card--balance span {
+  color: #1d3354;
+}
+
+.finance-total-card--expense span,
+.finance-total-card--expense span {
+  color: #1d3354;
+}
+
+.finance-total-card--expense strong {
+  color: #d11a1a;
 }
 
 .search-container--finance {
@@ -107,6 +131,10 @@
 
 .finance-amount {
   font-weight: 700;
+  color: #0f8a3b;
+}
+
+.ingresos-table .finance-amount {
   color: #0f8a3b;
 }
 

@@ -219,7 +219,7 @@ export default function FinancesPage() {
 
       <section className="finance-chart-card">
         <div className="finance-chart-card__header">
-          <h2>Gráfico Financiero</h2>
+          <h2>Resumen</h2>
           <div className="finance-period-toggle" role="tablist" aria-label="Periodo del gráfico financiero">
             <button
               type="button"

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Eye, Edit2, Trash2 } from 'lucide-react';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -24,9 +25,27 @@ const formatCurrency = (value) => new Intl.NumberFormat('es-EC', {
 
 const formatDate = (value) => {
   if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('es-EC', {
+
+  // For DATEONLY values (YYYY-MM-DD), avoid timezone conversion that can shift one day.
+  const raw = String(value).split('T')[0];
+  const parts = raw.split('-');
+  if (parts.length === 3) {
+    const y = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const d = Number(parts[2]);
+    const date = new Date(y, m, d);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('es-EC', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    }
+  }
+
+  const fallback = new Date(value);
+  if (Number.isNaN(fallback.getTime())) return '-';
+  return fallback.toLocaleDateString('es-EC', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -35,9 +54,16 @@ const formatDate = (value) => {
 
 const toInputDate = (value) => {
   if (!value) return '';
+  // Keep DATEONLY value intact without UTC conversion.
+  const raw = String(value).split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const ReadRow = ({ label, value }) => (
@@ -331,11 +357,11 @@ export default function EgresosPage() {
                   <td>{getDoctorLabel(egreso)}</td>
                   <td className="finance-amount finance-amount--expense">{formatCurrency(egreso.monto)}</td>
                   <td className="finance-description">{egreso.descripcion || '-'}</td>
-                  <td>{formatDate(egreso.created_at)}</td>
+                  <td>{formatDate(egreso.fecha)}</td>
                   <td className="table-actions">
-                    <button type="button" onClick={() => handleViewEgreso(egreso)} className="action-btn action-btn--view" title="Ver detalles">👁</button>
-                    <button type="button" onClick={() => openEditModal(egreso)} className="action-btn action-btn--edit" title="Editar">✎</button>
-                    <button type="button" onClick={() => handleDeleteEgreso(egreso)} className="action-btn action-btn--delete" title="Eliminar">🗑</button>
+                    <button type="button" onClick={() => handleViewEgreso(egreso)} className="action-btn action-btn--view" title="Ver detalles"><Eye size={16} /></button>
+                    <button type="button" onClick={() => openEditModal(egreso)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                    <button type="button" onClick={() => handleDeleteEgreso(egreso)} className="action-btn action-btn--delete" title="Eliminar"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -369,7 +395,7 @@ export default function EgresosPage() {
                   <ReadRow label="Fecha Registro:" value={formatDate(selectedEgreso?.created_at)} />
 
                   <div className="modal-footer">
-                    <button type="button" className="btn btn-secondary" onClick={() => {
+                    <button type="button" className="btn btn-secondary btn-detail-close" onClick={() => {
                       setIsModalOpen(false);
                       setIsViewMode(false);
                     }}>
@@ -442,10 +468,10 @@ export default function EgresosPage() {
                   </div>
 
                   <div className="modal-footer">
-                    <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+                    <button type="button" className="btn btn-secondary btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
                       Cancelar
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
+                    <button type="submit" className="btn btn-primary btn-modal-save" disabled={isSaving}>
                       {isSaving ? 'Guardando...' : 'Guardar'}
                     </button>
                   </div>

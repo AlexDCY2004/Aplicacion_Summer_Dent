@@ -188,7 +188,7 @@ export default function TratamientoModal({
               <ReadRow label="Fecha Registro:" value={formatDate(initialData?.created_at)} />
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                <button type="button" className="btn btn-secondary btn-detail-close" onClick={onClose}>
                   Cerrar
                 </button>
               </div>
@@ -259,10 +259,10 @@ export default function TratamientoModal({
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={onClose}>
+                <button type="button" className="btn btn-secondary btn-modal-cancel" onClick={onClose}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                <button type="submit" className="btn btn-primary btn-modal-save" disabled={isLoading}>
                   {isLoading ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>

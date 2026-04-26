@@ -56,13 +56,32 @@ export default function CitasTable({ citas, pacientes = [], doctores = [], trata
     return doctor ? doctor.nombre : '-';
   };
 
-  const resolveTratamientoNombre = (cita, tratamientos = []) => {
-    if (cita.tratamiento?.nombre) return cita.tratamiento.nombre;
+  const resolveTratamientos = (cita, tratamientos = []) => {
+    if (cita.tratamiento?.nombre) return [String(cita.tratamiento.nombre).trim()].filter(Boolean);
 
     const tratamiento = tratamientos.find((item) => String(item.id) === String(cita.id_tratamiento));
-    if (tratamiento) return tratamiento.nombre;
+    if (tratamiento?.nombre) return [String(tratamiento.nombre).trim()].filter(Boolean);
 
-    return cita.tratamientos || '-';
+    if (Array.isArray(cita.tratamientos)) {
+      const names = cita.tratamientos
+        .map((item) => {
+          if (item && typeof item === 'object') return item.nombre || '';
+          return String(item || '');
+        })
+        .map((name) => String(name).trim())
+        .filter(Boolean);
+
+      if (names.length > 0) return names;
+    }
+
+    if (typeof cita.tratamientos === 'string' && cita.tratamientos.trim()) {
+      return cita.tratamientos
+        .split(',')
+        .map((name) => String(name).trim())
+        .filter(Boolean);
+    }
+
+    return ['-'];
   };
 
   if (isLoading) {
@@ -120,7 +139,7 @@ export default function CitasTable({ citas, pacientes = [], doctores = [], trata
             const isAttended = cita.estado?.toLowerCase() === 'atendida';
             const pacienteNombre = resolvePacienteNombre(cita, pacientes);
             const doctorNombre = resolveDoctorNombre(cita, doctores);
-            const tratamientoNombre = resolveTratamientoNombre(cita, tratamientos);
+            const tratamientoNombres = resolveTratamientos(cita, tratamientos);
             
             return (
               <tr key={cita.id}>
@@ -133,7 +152,13 @@ export default function CitasTable({ citas, pacientes = [], doctores = [], trata
                   </strong>
                 </td>
                 <td>{doctorNombre}</td>
-                <td>{tratamientoNombre}</td>
+                <td>
+                  <div className="cita-tratamientos-stack">
+                    {tratamientoNombres.map((name, idx) => (
+                      <span key={`${cita.id}-trat-${idx}`} className="cita-tratamiento-item">{name}</span>
+                    ))}
+                  </div>
+                </td>
                 <td>
                   <span className={`badge ${getEstadoBadgeClass(cita.estado)}`}>
                     {cita.estado || 'Sin especificar'}

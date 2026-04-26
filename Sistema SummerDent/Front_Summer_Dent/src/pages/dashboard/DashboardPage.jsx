@@ -134,7 +134,7 @@ export default function DashboardPage() {
               todaysAppointments.map((appointment) => (
                 <div key={`today-${appointment.id}`} className="appointment-item">
                   <div>
-                    <p className="appointment-id">Paciente ID: {appointment.id}</p>
+                    <p className="appointment-id">{appointment.patientName || 'Paciente sin nombre'}</p>
                     <span>
                       {appointment.date} - {appointment.start} a {appointment.end}
                     </span>
@@ -142,8 +142,8 @@ export default function DashboardPage() {
                   <span
                     className={
                       appointment.status === 'confirmada'
-                        ? 'appointment-status appointment-status--ok'
-                        : 'appointment-status appointment-status--pending'
+                        ? 'appointment-status appointment-status--ok appointment-status--today'
+                        : 'appointment-status appointment-status--pending appointment-status--today'
                     }
                   >
                     {appointment.status}

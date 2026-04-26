@@ -23,15 +23,24 @@ const sumMonthAmount = (rows, monthRef) =>
     .reduce((sum, item) => sum + toNumber(item?.monto), 0);
 
 export async function fetchDashboardSnapshot() {
-  const [citasRes, ingresosRes, egresosRes] = await Promise.allSettled([
+  const [citasRes, ingresosRes, egresosRes, pacientesRes] = await Promise.allSettled([
     apiClient.get('/api/citas'),
     apiClient.get('/api/movimientos-finanzas/ingresos'),
-    apiClient.get('/api/movimientos-finanzas/egresos')
+    apiClient.get('/api/movimientos-finanzas/egresos'),
+    apiClient.get('/api/pacientes')
   ]);
 
   const citas = citasRes.status === 'fulfilled' && Array.isArray(citasRes.value?.data) ? citasRes.value.data : [];
   const ingresos = ingresosRes.status === 'fulfilled' && Array.isArray(ingresosRes.value?.data) ? ingresosRes.value.data : [];
   const egresos = egresosRes.status === 'fulfilled' && Array.isArray(egresosRes.value?.data) ? egresosRes.value.data : [];
+  const pacientes = pacientesRes.status === 'fulfilled' && Array.isArray(pacientesRes.value?.data) ? pacientesRes.value.data : [];
+
+  const pacienteNombrePorCedula = new Map(
+    pacientes.map((item) => {
+      const fullName = [item?.nombre, item?.apellido].filter(Boolean).join(' ').trim();
+      return [String(item?.id_cedula || ''), fullName || 'Paciente sin nombre'];
+    })
+  );
 
   const today = getToday();
   const monthRef = getCurrentMonth();
@@ -68,6 +77,7 @@ export async function fetchDashboardSnapshot() {
     .slice(0, 6)
     .map((item) => ({
       id: item?.id,
+      patientName: pacienteNombrePorCedula.get(String(item?.id_paciente || '')) || `Paciente ID: ${item?.id_paciente || '-'}`,
       date: item?.fecha || today,
       start: trimTime(item?.hora_inicio),
       end: trimTime(item?.hora_fin),

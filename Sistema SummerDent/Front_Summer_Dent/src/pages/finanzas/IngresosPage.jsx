@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Eye, Edit2, Trash2 } from 'lucide-react';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -8,6 +9,7 @@ import {
   updateMovimientoFinanzas
 } from '../../services/api/movimientoFinanzas';
 import { fetchDoctores } from '../../services/api/doctores';
+import { fetchCitas } from '../../services/api/citas';
 import ErrorState from '../../components/feedback/ErrorState';
 
 const initialFormState = {
@@ -24,9 +26,27 @@ const formatCurrency = (value) => new Intl.NumberFormat('es-EC', {
 
 const formatDate = (value) => {
   if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('es-EC', {
+
+  // For DATEONLY values (YYYY-MM-DD), avoid timezone conversion that can shift one day.
+  const raw = String(value).split('T')[0];
+  const parts = raw.split('-');
+  if (parts.length === 3) {
+    const y = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const d = Number(parts[2]);
+    const date = new Date(y, m, d);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('es-EC', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    }
+  }
+
+  const fallback = new Date(value);
+  if (Number.isNaN(fallback.getTime())) return '-';
+  return fallback.toLocaleDateString('es-EC', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -35,9 +55,16 @@ const formatDate = (value) => {
 
 const toInputDate = (value) => {
   if (!value) return '';
+  // Keep DATEONLY value intact without UTC conversion.
+  const raw = String(value).split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const ReadRow = ({ label, value }) => (
@@ -53,6 +80,34 @@ const getDoctorLabel = (movimiento) => {
   }
 
   return movimiento.id_doctor ? `Doctor #${movimiento.id_doctor}` : '-';
+};
+
+const sameMoney = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) < 0.001;
+
+const isIngresoDesdeCitaAtendida = (ingreso, citas = []) => {
+  if (!ingreso || String(ingreso.tipo || '').toLowerCase() !== 'ingreso') return false;
+
+  const descripcion = String(ingreso.descripcion || '').toLowerCase();
+  if (descripcion.includes('cita')) return true;
+
+  const ingresoDoctor = ingreso.id_doctor !== undefined && ingreso.id_doctor !== null
+    ? Number(ingreso.id_doctor)
+    : null;
+  const ingresoFecha = ingreso.fecha ? String(ingreso.fecha).slice(0, 10) : '';
+
+  return (citas || []).some((cita) => {
+    const estado = String(cita.estado || '').toLowerCase();
+    if (estado !== 'atendida') return false;
+
+    const citaDoctor = cita.id_doctor !== undefined && cita.id_doctor !== null
+      ? Number(cita.id_doctor)
+      : null;
+    const citaFecha = cita.fecha ? String(cita.fecha).slice(0, 10) : '';
+
+    return citaDoctor === ingresoDoctor
+      && sameMoney(cita.precio, ingreso.monto)
+      && citaFecha === ingresoFecha;
+  });
 };
 
 export default function IngresosPage() {
@@ -80,6 +135,17 @@ export default function IngresosPage() {
     queryKey: ['doctores'],
     queryFn: fetchDoctores
   });
+
+  const { data: citas = [] } = useQuery({
+    queryKey: ['citas'],
+    queryFn: fetchCitas
+  });
+
+  const isIngresoBloqueado = Boolean(
+    !isViewMode
+    && selectedIngreso?.id
+    && isIngresoDesdeCitaAtendida(selectedIngreso, citas)
+  );
 
   const totalIngresos = useMemo(
     () => ingresos.reduce((acc, ingreso) => acc + Number(ingreso.monto || 0), 0),
@@ -210,6 +276,7 @@ export default function IngresosPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (isIngresoBloqueado) return;
     if (!validateForm()) return;
 
     setIsSaving(true);
@@ -332,11 +399,11 @@ export default function IngresosPage() {
                   <td>{getDoctorLabel(ingreso)}</td>
                   <td className="finance-amount">{formatCurrency(ingreso.monto)}</td>
                   <td className="finance-description">{ingreso.descripcion || '-'}</td>
-                  <td>{formatDate(ingreso.created_at)}</td>
+                  <td>{formatDate(ingreso.fecha)}</td>
                   <td className="table-actions">
-                    <button type="button" onClick={() => handleViewIngreso(ingreso)} className="action-btn action-btn--view" title="Ver detalles">👁</button>
-                    <button type="button" onClick={() => openEditModal(ingreso)} className="action-btn action-btn--edit" title="Editar">✎</button>
-                    <button type="button" onClick={() => handleDeleteIngreso(ingreso)} className="action-btn action-btn--delete" title="Eliminar">🗑</button>
+                    <button type="button" onClick={() => handleViewIngreso(ingreso)} className="action-btn action-btn--view" title="Ver detalles"><Eye size={16} /></button>
+                    <button type="button" onClick={() => openEditModal(ingreso)} className="action-btn action-btn--edit" title="Editar"><Edit2 size={16} /></button>
+                    <button type="button" onClick={() => handleDeleteIngreso(ingreso)} className="action-btn action-btn--delete" title="Eliminar"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
@@ -370,7 +437,7 @@ export default function IngresosPage() {
                   <ReadRow label="Fecha Registro:" value={formatDate(selectedIngreso?.created_at)} />
 
                   <div className="modal-footer">
-                    <button type="button" className="btn btn-secondary" onClick={() => {
+                    <button type="button" className="btn btn-secondary btn-detail-close" onClick={() => {
                       setIsModalOpen(false);
                       setIsViewMode(false);
                     }}>
@@ -380,6 +447,11 @@ export default function IngresosPage() {
                 </>
               ) : (
                 <>
+                  {isIngresoBloqueado && (
+                    <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                      Este ingreso proviene de una cita atendida. Debe editarse desde el módulo de Citas.
+                    </div>
+                  )}
                   <div className="form-row">
                     <div className="form-group">
                       <label htmlFor="id_doctor">Doctor</label>
@@ -388,7 +460,7 @@ export default function IngresosPage() {
                         name="id_doctor"
                         value={formData.id_doctor}
                         onChange={handleFormChange}
-                        disabled={isDoctoresLoading}
+                        disabled={isDoctoresLoading || isIngresoBloqueado}
                       >
                         <option value="">No especificado</option>
                         {doctores.map((doc) => (
@@ -405,6 +477,7 @@ export default function IngresosPage() {
                         type="date"
                         value={formData.fecha}
                         onChange={handleFormChange}
+                        disabled={isIngresoBloqueado}
                         className={formErrors.fecha ? 'input-error' : ''}
                       />
                       {formErrors.fecha && <span className="error-text">{formErrors.fecha}</span>}
@@ -422,6 +495,7 @@ export default function IngresosPage() {
                         min="0"
                         value={formData.monto}
                         onChange={handleFormChange}
+                        disabled={isIngresoBloqueado}
                         className={formErrors.monto ? 'input-error' : ''}
                         placeholder="0.00"
                       />
@@ -435,6 +509,7 @@ export default function IngresosPage() {
                         type="text"
                         value={formData.descripcion}
                         onChange={handleFormChange}
+                        disabled={isIngresoBloqueado}
                         className={formErrors.descripcion ? 'input-error' : ''}
                         placeholder="Descripción del ingreso"
                       />
@@ -443,11 +518,11 @@ export default function IngresosPage() {
                   </div>
 
                   <div className="modal-footer">
-                    <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+                    <button type="button" className="btn btn-secondary btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
                       Cancelar
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                      {isSaving ? 'Guardando...' : 'Guardar'}
+                    <button type="submit" className="btn btn-primary btn-modal-save" disabled={isSaving || isIngresoBloqueado}>
+                      {isIngresoBloqueado ? 'Bloqueado' : (isSaving ? 'Guardando...' : 'Guardar')}
                     </button>
                   </div>
                 </>

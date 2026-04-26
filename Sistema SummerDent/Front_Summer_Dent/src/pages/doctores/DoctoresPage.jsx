@@ -13,7 +13,8 @@ export default function DoctoresPage() {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [modalErrorMessage, setModalErrorMessage] = useState('');
+  const [modalFieldErrors, setModalFieldErrors] = useState({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -47,14 +48,16 @@ export default function DoctoresPage() {
   const openCreateModal = () => {
     setSelectedDoctor(null);
     setIsViewMode(false);
-    setErrorMessage('');
+    setModalErrorMessage('');
+    setModalFieldErrors({});
     setIsModalOpen(true);
   };
 
   const openEditModal = (doctor) => {
     setSelectedDoctor(doctor);
     setIsViewMode(false);
-    setErrorMessage('');
+    setModalErrorMessage('');
+    setModalFieldErrors({});
     setIsModalOpen(true);
   };
 
@@ -87,13 +90,15 @@ export default function DoctoresPage() {
   const handleViewDoctor = (doctor) => {
     setSelectedDoctor(doctor);
     setIsViewMode(true);
-    setErrorMessage('');
+    setModalErrorMessage('');
+    setModalFieldErrors({});
     setIsModalOpen(true);
   };
 
   const handleSaveDoctor = async (payload) => {
     setIsSaving(true);
-    setErrorMessage('');
+    setModalErrorMessage('');
+    setModalFieldErrors({});
 
     try {
       if (selectedDoctor?.id) {
@@ -104,9 +109,25 @@ export default function DoctoresPage() {
 
       setIsModalOpen(false);
       setSelectedDoctor(null);
+      setModalErrorMessage('');
+      setModalFieldErrors({});
       queryClient.invalidateQueries({ queryKey: ['doctores'] });
     } catch (error) {
-      setErrorMessage(error.response?.data?.error || 'No se pudo guardar el odontólogo.');
+      const serverMsg = error.response?.data?.error || 'No se pudo guardar el odontólogo.';
+      const msgLower = String(serverMsg).toLowerCase();
+      const fieldErrs = {};
+
+      if (msgLower.includes('nombre')) fieldErrs.nombre = serverMsg;
+      if (msgLower.includes('telefono') || msgLower.includes('teléfono')) fieldErrs.telefono = serverMsg;
+      if (msgLower.includes('correo')) fieldErrs.correo = serverMsg;
+      if (msgLower.includes('especialidad')) fieldErrs.especialidad = serverMsg;
+      if (msgLower.includes('estado')) fieldErrs.estado = serverMsg;
+
+      if (Object.keys(fieldErrs).length > 0) {
+        setModalFieldErrors(fieldErrs);
+      } else {
+        setModalErrorMessage(serverMsg);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -127,12 +148,6 @@ export default function DoctoresPage() {
           + Nuevo Odontólogo
         </button>
       </div>
-
-      {errorMessage && (
-        <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
-          {errorMessage}
-        </div>
-      )}
 
       <div className="search-container">
         <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -162,11 +177,15 @@ export default function DoctoresPage() {
           setIsModalOpen(false);
           setSelectedDoctor(null);
           setIsViewMode(false);
+          setModalErrorMessage('');
+          setModalFieldErrors({});
         }}
         onSubmit={handleSaveDoctor}
         initialData={selectedDoctor}
         isLoading={isSaving}
         readOnly={isViewMode}
+        externalErrors={modalFieldErrors}
+        externalError={modalErrorMessage}
       />
       <ConfirmModal
         isOpen={confirmOpen}

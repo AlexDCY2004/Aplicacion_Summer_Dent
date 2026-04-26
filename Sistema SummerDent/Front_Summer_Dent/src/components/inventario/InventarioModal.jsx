@@ -151,7 +151,7 @@ export default function InventarioModal({
             <ReadRow label="Stock Mínimo:" value={initialData?.stock_minimo !== undefined ? String(initialData.stock_minimo) : '0'} />
 
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={closeModal}>Cerrar</button>
+              <button type="button" className="btn btn-secondary btn-detail-close" onClick={closeModal}>Cerrar</button>
             </div>
           </div>
         ) : (
@@ -247,8 +247,8 @@ export default function InventarioModal({
           {/* Movement UI removed per request */}
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            <button type="button" className="btn btn-secondary btn-modal-cancel" onClick={closeModal}>Cancelar</button>
+            <button type="submit" className="btn btn-primary btn-modal-save" disabled={isLoading}>
               {isLoading ? 'Guardando...' : 'Guardar'}
             </button>
           </div>

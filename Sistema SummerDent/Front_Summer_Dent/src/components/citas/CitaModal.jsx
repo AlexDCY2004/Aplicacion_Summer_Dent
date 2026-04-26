@@ -480,11 +480,11 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <button type="button" onClick={onClose} className={readOnly ? 'btn btn-secondary btn-detail-close' : 'btn btn-secondary btn-modal-cancel'}>
               {readOnly ? 'Cerrar' : 'Cancelar'}
             </button>
             {!readOnly && (
-              <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              <button type="submit" className="btn btn-primary btn-modal-save" disabled={isLoading}>
                 {isLoading ? 'Guardando...' : 'Guardar'}
               </button>
             )}

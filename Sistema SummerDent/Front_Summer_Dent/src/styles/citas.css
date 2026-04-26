@@ -41,6 +41,17 @@
   color: #1a1a1a;
 }
 
+.cita-tratamientos-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.cita-tratamiento-item {
+  display: block;
+  line-height: 1.25;
+}
+
 /* ========== STATE BADGES ========== */
 
 .badge {

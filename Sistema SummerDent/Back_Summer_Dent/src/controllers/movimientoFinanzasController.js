@@ -15,11 +15,14 @@ export const crearMovimientoController = async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
     const supabaseUser = getSupabaseClientWithToken(token);
 
-    const { id_doctor, tipo, monto, descripcion } = req.body || {};
+    const { id_doctor, tipo, monto, descripcion, fecha } = req.body || {};
 
     if (!tipo || !tipoPermitidos.includes(String(tipo))) return res.status(400).json({ error: `tipo inválido. Debe ser: ${tipoPermitidos.join(', ')}` });
     if (!esDecimalPositivo(monto)) return res.status(400).json({ error: 'monto inválido, debe ser número mayor que 0' });
     if (id_doctor !== undefined && id_doctor !== null && !esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
+    if (fecha !== undefined && fecha !== null && !esFechaValida(String(fecha))) {
+      return res.status(400).json({ error: 'fecha inválida, formato YYYY-MM-DD' });
+    }
 
     // Obtener id de perfil (usuario autenticado) desde el cliente supabase con token
     let perfilId = null;
@@ -31,20 +34,37 @@ export const crearMovimientoController = async (req, res) => {
       perfilId = null;
     }
 
-    // Forzar id_perfil y fecha según la acción actual
+    // Forzar id_perfil y usar fecha enviada (si viene válida), caso contrario usar hoy.
     const hoy = new Date().toISOString().slice(0,10);
+    const fechaSolicitada = fecha ? String(fecha).slice(0, 10) : hoy;
     const payload = {
       id_perfil: perfilId || null,
       id_doctor: id_doctor !== undefined && id_doctor !== null ? Number(id_doctor) : null,
       tipo: String(tipo),
       monto: Number(Number(monto).toFixed(2)),
       descripcion: descripcion ? String(descripcion).trim() : null,
-      fecha: hoy,
+      fecha: fechaSolicitada,
       created_at: new Date().toISOString()
     };
 
     const { data, error } = await supabaseUser.from('movimiento_finanzas').insert([payload]).select().maybeSingle();
     if (error) return res.status(400).json({ error: error.message || error });
+
+    // Algunas instalaciones tienen triggers/policies que fijan la fecha al día actual al insertar.
+    // Si ocurre, corregimos inmediatamente al valor solicitado por el usuario.
+    if (data && data.id && String(data.fecha || '') !== fechaSolicitada) {
+      const { data: corrected, error: correctErr } = await supabaseUser
+        .from('movimiento_finanzas')
+        .update({ fecha: fechaSolicitada })
+        .eq('id', Number(data.id))
+        .select()
+        .maybeSingle();
+
+      if (!correctErr && corrected) {
+        return res.status(201).json({ mensaje: 'Movimiento creado', movimiento: corrected });
+      }
+    }
+
     return res.status(201).json({ mensaje: 'Movimiento creado', movimiento: data });
   } catch (error) {
     return res.status(500).json({ error: error.message || error });
