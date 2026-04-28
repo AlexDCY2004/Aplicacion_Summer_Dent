@@ -21,6 +21,7 @@ const getPacienteNombre = (cita, pacientes) => {
 export default function CitasPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCita, setSelectedCita] = useState(null);
   const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit' | 'view'
@@ -54,9 +55,18 @@ export default function CitasPage() {
 
   const filteredCitas = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
-    if (!search) return citas;
+    const dateOnly = dateFilter;
 
     return citas.filter((cita) => {
+      // Filter by date if date filter is set
+      if (dateOnly) {
+        const citaDate = String(cita.fecha || '').split('T')[0];
+        if (citaDate !== dateOnly) return false;
+      }
+
+      // If there's no search term, include the (possibly date-filtered) cita
+      if (!search) return true;
+
       const pacienteNombre = getPacienteNombre(cita, pacientes).toLowerCase();
 
       const doctorNombre = cita.doctor?.nombre
@@ -71,7 +81,7 @@ export default function CitasPage() {
         || estado.includes(search)
       );
     });
-  }, [citas, doctores, pacientes, searchTerm]);
+  }, [citas, doctores, pacientes, searchTerm, dateFilter]);
 
   const handleNewCita = () => {
     setSelectedCita(null);
@@ -171,24 +181,46 @@ export default function CitasPage() {
         </div>
       )}
 
-      <div className="search-container" style={{ marginBottom: '1rem' }}>
-        <svg
-          className="search-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Buscar por paciente, odontólogo o estado..."
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-        />
+      <div
+        className="search-container search-container--compact"
+        style={{
+          marginBottom: '1rem',
+          display: 'grid',
+          gridTemplateColumns: '1fr 220px',
+          gap: '0.75rem',
+          alignItems: 'end'
+        }}
+      >
+        <div style={{ position: 'relative' }}>
+          <svg
+            className="search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Buscar por paciente, odontólogo o estado..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            style={{ paddingRight: '1rem' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <label style={{ fontSize: '0.85rem', color: '#546e7a' }}>Filtrar por fecha</label>
+          <input
+            type="date"
+            className="search-input finance-date-input"
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value)}
+          />
+        </div>
       </div>
 
       {isError && (

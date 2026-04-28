@@ -199,7 +199,7 @@ export default function InventarioModal({
             </div>
 
             <div className="form-group">
-              <label htmlFor="precio">Precio (opcional)</label>
+              <label htmlFor="precio">Precio</label>
               <input
                 id="precio"
                 name="precio"
