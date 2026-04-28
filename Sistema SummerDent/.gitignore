@@ -3,8 +3,8 @@ Back_Summer_Dent/node_modules/
 Front_Summer_Dent/node_modules/
 
 # Ignorar archivos .env
-Back_Summer_Dent/.env
-Front_Summer_Dent/.env
+#Back_Summer_Dent/.env
+#Front_Summer_Dent/.env
 
 # Ignorar archivos de construcción y otros temporales
 dist/
