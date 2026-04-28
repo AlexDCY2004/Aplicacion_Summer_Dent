@@ -168,9 +168,13 @@ p {
   display: grid;
   gap: 0.6rem;
   align-content: start;
-  transition: width 1000ms ease, padding 1000ms ease, grid-template-columns 1000ms ease;
-  position: relative;
+  transition: width 300ms ease, padding 300ms ease, grid-template-columns 300ms ease;
+  /* Keep sidebar visible while scrolling */
+  position: sticky;
+  top: 0;
+  height: 100vh;
   overflow: visible;
+  z-index: 40;
 }
 
 /* Expand sidebar on hover to show full labels (do not expand on focus-within) */
@@ -187,8 +191,8 @@ p {
 }
 
 .header-brand__logo {
-  width: 44px;
-  height: 44px;
+  width: 90px;
+  height: 90px;
   object-fit: cover;
   border-radius: 6px;
   /* blue background behind logo to match sidebar */
@@ -261,11 +265,17 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem 1.9rem;
+  padding: 0.5rem 0.5rem;
   /* expose header height for sidebar alignment */
   --header-height: 72px;
   border-bottom: 1px solid #d9e0eb;
-  background: #ffffff;
+  /* Soft celeste background to match the UI and remain visible while scrolling */
+  background: linear-gradient(180deg, #e6f8ff 0%, #e0f4ff 100%);
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  box-shadow: 0 2px 8px rgba(14, 60, 90, 0.06);
+  border-bottom: 1px solid rgba(14, 60, 90, 0.06);
 }
 
 .header-title strong {
@@ -343,6 +353,12 @@ p {
   .app-shell__sidebar {
     border-right: none;
     border-bottom: 1px solid #e0e6f0;
+  }
+
+  /* On small screens keep normal flow to avoid fixed-height layout issues */
+  .app-shell__sidebar {
+    position: static;
+    height: auto;
   }
 
   .sidebar-brand h2 {

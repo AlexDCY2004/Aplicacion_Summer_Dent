@@ -114,6 +114,8 @@ export default function IngresosPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIngreso, setSelectedIngreso] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -127,8 +129,8 @@ export default function IngresosPage() {
   const [confirmError, setConfirmError] = useState('');
 
   const { data: ingresos = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['ingresos'],
-    queryFn: () => fetchIngresos()
+    queryKey: ['ingresos', desde, hasta],
+    queryFn: () => fetchIngresos({ desde: desde || undefined, hasta: hasta || undefined })
   });
 
   const { data: doctores = [], isLoading: isDoctoresLoading } = useQuery({
@@ -165,11 +167,16 @@ export default function IngresosPage() {
         String(ingreso.descripcion || '').toLowerCase(),
         getDoctorLabel(ingreso).toLowerCase()
       ].some((field) => field.includes(search));
+      // Apply local range filtering as a safety net (server already filters when params provided)
+      const fechaKey = ingreso.fecha ? String(ingreso.fecha).slice(0, 10) : '';
+      let matchesDate = true;
+      if (desde && hasta) matchesDate = fechaKey >= desde && fechaKey <= hasta;
+      else if (desde) matchesDate = fechaKey >= desde;
+      else if (hasta) matchesDate = fechaKey <= hasta;
 
-      const matchesDate = !dateFilter || ingreso.fecha === dateFilter;
       return matchesSearch && matchesDate;
     });
-  }, [dateFilter, ingresos, searchTerm]);
+  }, [desde, hasta, ingresos, searchTerm]);
 
   const openCreateModal = () => {
     setSelectedIngreso(null);
@@ -326,13 +333,25 @@ export default function IngresosPage() {
 
       <div className="finance-summary-grid">
         <section className="finance-filter-card">
-          <h3>Filtrar por fecha</h3>
-          <input
-            type="date"
-            className="search-input finance-date-input"
-            value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
-          />
+          <h3>Filtrar por rango</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              type="date"
+              className="search-input finance-date-input"
+              value={desde}
+              onChange={(event) => setDesde(event.target.value)}
+              placeholder="Desde"
+            />
+            <span style={{ fontSize: '0.9rem' }}>—</span>
+            <input
+              type="date"
+              className="search-input finance-date-input"
+              value={hasta}
+              onChange={(event) => setHasta(event.target.value)}
+              placeholder="Hasta"
+            />
+            <button type="button" className="btn btn-secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</button>
+          </div>
         </section>
 
         <section className="finance-total-card finance-total-card--income">

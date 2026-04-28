@@ -102,12 +102,13 @@ const getGroupKeyByPeriod = (dateKey, period) => {
 export default function FinancesPage() {
   const [period, setPeriod] = useState(PERIODS.mensual);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [typeFilter, setTypeFilter] = useState('todos');
 
   const { data: movimientos = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['movimientos-financieros'],
-    queryFn: () => fetchMovimientosFinanzas()
+    queryKey: ['movimientos-financieros', desde, hasta],
+    queryFn: () => fetchMovimientosFinanzas({ desde: desde || undefined, hasta: hasta || undefined })
   });
 
   const filteredMovimientos = useMemo(() => {
@@ -115,7 +116,12 @@ export default function FinancesPage() {
 
     return movimientos.filter((movimiento) => {
       const matchesType = typeFilter === 'todos' || movimiento.tipo === typeFilter;
-      const matchesDate = !dateFilter || safeDateKey(movimiento.fecha) === dateFilter;
+
+      const fechaKey = safeDateKey(movimiento.fecha);
+      let matchesDate = true;
+      if (desde && hasta) matchesDate = fechaKey >= desde && fechaKey <= hasta;
+      else if (desde) matchesDate = fechaKey >= desde;
+      else if (hasta) matchesDate = fechaKey <= hasta;
 
       const searchableFields = [
         safeDateKey(movimiento.fecha),
@@ -133,7 +139,7 @@ export default function FinancesPage() {
 
       return matchesType && matchesDate && matchesSearch;
     });
-  }, [dateFilter, movimientos, searchTerm, typeFilter]);
+  }, [desde, hasta, movimientos, searchTerm, typeFilter]);
 
   const totalIngresos = useMemo(
     () => filteredMovimientos
@@ -309,12 +315,24 @@ export default function FinancesPage() {
               />
             </div>
 
-            <input
-              type="date"
-              className="search-input finance-date-input"
-              value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
-            />
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="date"
+                className="search-input finance-date-input"
+                value={desde}
+                onChange={(event) => setDesde(event.target.value)}
+                placeholder="Desde"
+              />
+              <span style={{ fontSize: '0.9rem' }}>—</span>
+              <input
+                type="date"
+                className="search-input finance-date-input"
+                value={hasta}
+                onChange={(event) => setHasta(event.target.value)}
+                placeholder="Hasta"
+              />
+              <button type="button" className="btn btn-secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</button>
+            </div>
 
             <select
               className="search-input finance-type-select"
