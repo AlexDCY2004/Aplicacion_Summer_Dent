@@ -11,8 +11,8 @@ const toNumber = (value) => {
 const normalizeStatus = (value) => {
   const status = String(value || '').toLowerCase();
   if (status.includes('confirm')) return 'confirmada';
-  if (status.includes('pend')) return 'pendiente';
-  return status || 'pendiente';
+  if (status.includes('pend')) return 'agendada';
+  return status || 'agendada';
 };
 
 const trimTime = (value) => String(value || '').slice(0, 5);

@@ -16,6 +16,7 @@ const initialFormState = {
   id_doctor: '',
   monto: '',
   descripcion: '',
+  metodo_pago: '',
   fecha: ''
 };
 
@@ -113,7 +114,7 @@ const isIngresoDesdeCitaAtendida = (ingreso, citas = []) => {
 export default function IngresosPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  //const [dateFilter, setDateFilter] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -194,6 +195,7 @@ export default function IngresosPage() {
       id_doctor: ingreso.id_doctor || '',
       monto: ingreso.monto !== undefined && ingreso.monto !== null ? String(ingreso.monto) : '',
       descripcion: ingreso.descripcion || '',
+      metodo_pago: ingreso.metodo_pago || '',
       fecha: toInputDate(ingreso.fecha)
     });
     setFormErrors({});
@@ -235,6 +237,7 @@ export default function IngresosPage() {
       id_doctor: ingreso.id_doctor || '',
       monto: ingreso.monto !== undefined && ingreso.monto !== null ? String(ingreso.monto) : '',
       descripcion: ingreso.descripcion || '',
+      metodo_pago: ingreso.metodo_pago || '',
       fecha: toInputDate(ingreso.fecha)
     });
     setFormErrors({});
@@ -294,6 +297,7 @@ export default function IngresosPage() {
       id_doctor: formData.id_doctor ? Number(formData.id_doctor) : null,
       monto: Number(formData.monto),
       descripcion: formData.descripcion.trim() || null,
+      metodo_pago: formData.metodo_pago ? String(formData.metodo_pago) : undefined,
       fecha: formData.fecha || undefined
     };
 
@@ -406,6 +410,7 @@ export default function IngresosPage() {
             <thead>
               <tr>
                 <th>Doctor</th>
+                <th>Método de pago</th>
                 <th>Monto</th>
                 <th>Descripción</th>
                 <th>Fecha Registro</th>
@@ -416,6 +421,7 @@ export default function IngresosPage() {
               {filteredIngresos.map((ingreso) => (
                 <tr key={ingreso.id}>
                   <td>{getDoctorLabel(ingreso)}</td>
+                  <td>{ingreso.metodo_pago || '-'}</td>
                   <td className="finance-amount">{formatCurrency(ingreso.monto)}</td>
                   <td className="finance-description">{ingreso.descripcion || '-'}</td>
                   <td>{formatDate(ingreso.fecha)}</td>
@@ -451,6 +457,7 @@ export default function IngresosPage() {
                   <ReadRow label="Fecha:" value={formatDate(selectedIngreso?.fecha)} />
                   <ReadRow label="Doctor:" value={getDoctorLabel(selectedIngreso || {})} />
                   <ReadRow label="Tipo:" value={selectedIngreso?.tipo || 'ingreso'} />
+                      <ReadRow label="Método:" value={selectedIngreso?.metodo_pago || '-'} />
                   <ReadRow label="Monto:" value={formatCurrency(selectedIngreso?.monto)} />
                   <ReadRow label="Descripción:" value={selectedIngreso?.descripcion || '-'} />
                   <ReadRow label="Fecha Registro:" value={formatDate(selectedIngreso?.created_at)} />
@@ -533,6 +540,24 @@ export default function IngresosPage() {
                         placeholder="Descripción del ingreso"
                       />
                       {formErrors.descripcion && <span className="error-text">{formErrors.descripcion}</span>}
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="metodo_pago">Método de pago</label>
+                      <select
+                        id="metodo_pago"
+                        name="metodo_pago"
+                        value={formData.metodo_pago}
+                        onChange={handleFormChange}
+                        disabled={isIngresoBloqueado}
+                      >
+                        <option value="">No especificado</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="tarjeta">Tarjeta</option>
+                      </select>
                     </div>
                   </div>
 

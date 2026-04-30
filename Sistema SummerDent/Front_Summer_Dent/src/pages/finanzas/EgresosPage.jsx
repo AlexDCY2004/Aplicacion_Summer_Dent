@@ -15,6 +15,7 @@ const initialFormState = {
   id_doctor: '',
   monto: '',
   descripcion: '',
+  metodo_pago: '',
   fecha: ''
 };
 
@@ -152,6 +153,7 @@ export default function EgresosPage() {
       id_doctor: egreso.id_doctor || '',
       monto: egreso.monto !== undefined && egreso.monto !== null ? String(egreso.monto) : '',
       descripcion: egreso.descripcion || '',
+      metodo_pago: egreso.metodo_pago || '',
       fecha: toInputDate(egreso.fecha)
     });
     setFormErrors({});
@@ -193,6 +195,7 @@ export default function EgresosPage() {
       id_doctor: egreso.id_doctor || '',
       monto: egreso.monto !== undefined && egreso.monto !== null ? String(egreso.monto) : '',
       descripcion: egreso.descripcion || '',
+      metodo_pago: egreso.metodo_pago || '',
       fecha: toInputDate(egreso.fecha)
     });
     setFormErrors({});
@@ -250,6 +253,7 @@ export default function EgresosPage() {
       id_doctor: formData.id_doctor ? Number(formData.id_doctor) : null,
       monto: Number(formData.monto),
       descripcion: formData.descripcion.trim() || null,
+      metodo_pago: formData.metodo_pago ? String(formData.metodo_pago) : undefined,
       fecha: formData.fecha || undefined
     };
 
@@ -362,6 +366,7 @@ export default function EgresosPage() {
             <thead>
               <tr>
                 <th>Doctor</th>
+                <th>Método de pago</th>
                 <th>Monto</th>
                 <th>Descripción</th>
                 <th>Fecha Registro</th>
@@ -372,6 +377,7 @@ export default function EgresosPage() {
               {filteredEgresos.map((egreso) => (
                 <tr key={egreso.id}>
                   <td>{getDoctorLabel(egreso)}</td>
+                  <td>{egreso.metodo_pago || '-'}</td>
                   <td className="finance-amount finance-amount--expense">{formatCurrency(egreso.monto)}</td>
                   <td className="finance-description">{egreso.descripcion || '-'}</td>
                   <td>{formatDate(egreso.fecha)}</td>
@@ -407,6 +413,7 @@ export default function EgresosPage() {
                   <ReadRow label="Fecha:" value={formatDate(selectedEgreso?.fecha)} />
                   <ReadRow label="Doctor:" value={getDoctorLabel(selectedEgreso || {})} />
                   <ReadRow label="Tipo:" value={selectedEgreso?.tipo || 'egreso'} />
+                  <ReadRow label="Método:" value={selectedEgreso?.metodo_pago || '-'} />
                   <ReadRow label="Monto:" value={formatCurrency(selectedEgreso?.monto)} />
                   <ReadRow label="Descripción:" value={selectedEgreso?.descripcion || '-'} />
                   <ReadRow label="Fecha Registro:" value={formatDate(selectedEgreso?.created_at)} />
@@ -481,6 +488,23 @@ export default function EgresosPage() {
                         placeholder="Descripción del egreso"
                       />
                       {formErrors.descripcion && <span className="error-text">{formErrors.descripcion}</span>}
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="metodo_pago">Método de pago</label>
+                      <select
+                        id="metodo_pago"
+                        name="metodo_pago"
+                        value={formData.metodo_pago}
+                        onChange={handleFormChange}
+                      >
+                        <option value="">No especificado</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="tarjeta">Tarjeta</option>
+                      </select>
                     </div>
                   </div>
 

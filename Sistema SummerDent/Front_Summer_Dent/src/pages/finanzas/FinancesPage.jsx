@@ -105,6 +105,7 @@ export default function FinancesPage() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [typeFilter, setTypeFilter] = useState('todos');
+  const [metodoFilter, setMetodoFilter] = useState('todos');
 
   const { data: movimientos = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['movimientos-financieros', desde, hasta],
@@ -116,6 +117,7 @@ export default function FinancesPage() {
 
     return movimientos.filter((movimiento) => {
       const matchesType = typeFilter === 'todos' || movimiento.tipo === typeFilter;
+      const matchesMetodo = metodoFilter === 'todos' || movimiento.metodo_pago === metodoFilter;
 
       const fechaKey = safeDateKey(movimiento.fecha);
       let matchesDate = true;
@@ -137,9 +139,9 @@ export default function FinancesPage() {
 
       const matchesSearch = !normalizedSearch || searchableFields.some((field) => field.includes(normalizedSearch));
 
-      return matchesType && matchesDate && matchesSearch;
+      return matchesType && matchesDate && matchesSearch && matchesMetodo;
     });
-  }, [desde, hasta, movimientos, searchTerm, typeFilter]);
+  }, [desde, hasta, movimientos, searchTerm, typeFilter, metodoFilter]);
 
   const totalIngresos = useMemo(
     () => filteredMovimientos
@@ -343,6 +345,17 @@ export default function FinancesPage() {
               <option value="ingreso">Ingresos</option>
               <option value="egreso">Egresos</option>
             </select>
+            <select
+              className="search-input finance-type-select"
+              value={metodoFilter}
+              onChange={(event) => setMetodoFilter(event.target.value)}
+              style={{ marginLeft: '0.5rem' }}
+            >
+              <option value="todos">Todos métodos</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+              <option value="tarjeta">Tarjeta</option>
+            </select>
           </div>
         </div>
 
@@ -373,6 +386,7 @@ export default function FinancesPage() {
                 <tr>
                   <th>Doctor</th>
                   <th>Tipo</th>
+                  <th>Método de pago</th>
                   <th>Monto</th>
                   <th>Descripción</th>
                   <th>Fecha Registro</th>
@@ -387,6 +401,7 @@ export default function FinancesPage() {
                         {movimiento.tipo || 'sin tipo'}
                       </span>
                     </td>
+                    <td>{movimiento.metodo_pago || '-'}</td>
                     <td className={movimiento.tipo === 'egreso' ? 'finance-amount finance-amount--expense' : 'finance-amount finance-amount--income'}>
                       {formatSignedCurrency(movimiento.tipo, movimiento.monto)}
                     </td>

@@ -15,13 +15,18 @@ export const crearMovimientoController = async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
     const supabaseUser = getSupabaseClientWithToken(token);
 
-    const { id_doctor, tipo, monto, descripcion, fecha } = req.body || {};
+    const { id_doctor, tipo, monto, descripcion, fecha, metodo_pago } = req.body || {};
 
     if (!tipo || !tipoPermitidos.includes(String(tipo))) return res.status(400).json({ error: `tipo inválido. Debe ser: ${tipoPermitidos.join(', ')}` });
     if (!esDecimalPositivo(monto)) return res.status(400).json({ error: 'monto inválido, debe ser número mayor que 0' });
     if (id_doctor !== undefined && id_doctor !== null && !esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
     if (fecha !== undefined && fecha !== null && !esFechaValida(String(fecha))) {
       return res.status(400).json({ error: 'fecha inválida, formato YYYY-MM-DD' });
+    }
+    // metodo_pago es opcional; sólo validar si viene con valor no vacío
+    if (metodo_pago !== undefined && metodo_pago !== null && String(metodo_pago).trim() !== '') {
+      const allowed = ['efectivo', 'transferencia', 'tarjeta'];
+      if (!allowed.includes(String(metodo_pago))) return res.status(400).json({ error: `metodo_pago inválido. Debe ser uno de: ${allowed.join(', ')}` });
     }
 
     // Obtener id de perfil (usuario autenticado) desde el cliente supabase con token
@@ -43,6 +48,7 @@ export const crearMovimientoController = async (req, res) => {
       tipo: String(tipo),
       monto: Number(Number(monto).toFixed(2)),
       descripcion: descripcion ? String(descripcion).trim() : null,
+      metodo_pago: (metodo_pago !== undefined && metodo_pago !== null && String(metodo_pago).trim() !== '') ? String(metodo_pago) : undefined,
       fecha: fechaSolicitada,
       created_at: new Date().toISOString()
     };
@@ -130,7 +136,7 @@ export const actualizarMovimientoController = async (req, res) => {
 
     if (typeof req.body !== 'object' || req.body === null || Array.isArray(req.body)) return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un objeto JSON valido' });
 
-    const camposPermitidos = ['id_doctor', 'tipo', 'monto', 'descripcion', 'fecha'];
+    const camposPermitidos = ['id_doctor', 'tipo', 'monto', 'descripcion', 'fecha', 'metodo_pago'];
     const recibidos = Object.keys(req.body || {});
     if (recibidos.length === 0) return res.status(400).json({ error: 'Debes enviar al menos un campo para actualizar' });
     const noPermitidos = recibidos.filter((c) => !camposPermitidos.includes(c));
@@ -141,7 +147,7 @@ export const actualizarMovimientoController = async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Movimiento no encontrado' });
 
     const updates = {};
-    const { id_doctor, tipo, monto, descripcion, fecha } = req.body;
+    const { id_doctor, tipo, monto, descripcion, fecha, metodo_pago } = req.body;
     if (id_doctor !== undefined) {
       if (id_doctor !== null && !esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
       updates.id_doctor = id_doctor !== null ? Number(id_doctor) : null;
@@ -158,6 +164,11 @@ export const actualizarMovimientoController = async (req, res) => {
     if (fecha !== undefined) {
       if (!esFechaValida(String(fecha))) return res.status(400).json({ error: 'fecha inválida, formato YYYY-MM-DD' });
       updates.fecha = String(fecha);
+    }
+    if (metodo_pago !== undefined) {
+      const allowed = ['efectivo', 'transferencia', 'tarjeta'];
+      if (metodo_pago !== null && String(metodo_pago).trim() !== '' && !allowed.includes(String(metodo_pago))) return res.status(400).json({ error: `metodo_pago inválido. Debe ser uno de: ${allowed.join(', ')}` });
+      updates.metodo_pago = (metodo_pago === null || String(metodo_pago).trim() === '') ? null : String(metodo_pago);
     }
 
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No hay campos válidos para actualizar' });

@@ -59,7 +59,7 @@ const getInitialFormData = (initialData, tratamientos) => {
     hora_inicio: initialData?.hora_inicio || '',
     hora_fin: initialData?.hora_fin || '',
     precio: initialData?.precio !== undefined && initialData?.precio !== null ? String(initialData.precio) : '0.00',
-    estado: initialData?.estado || 'pendiente'
+    estado: initialData?.estado || 'agendada'
   };
 };
 
@@ -86,6 +86,14 @@ function ReadRow({ label, value }) {
 
 export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLoading, pacientes = [], doctores = [], tratamientos = [], readOnly = false, externalErrors = {} }) {
   const [formData, setFormData] = useState(() => getInitialFormData(initialData, tratamientos));
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPrecioEdited, setIsPrecioEdited] = useState(() => {
+    return initialData?.precio !== undefined && initialData?.precio !== null;
+  });
+  const [paymentMethod, setPaymentMethod] = useState('efectivo');
+  const [paymentDetail, setPaymentDetail] = useState('');
+  const [paymentErrors, setPaymentErrors] = useState({});
+  const [prevEstado, setPrevEstado] = useState(formData.estado);
   const [pacienteQuery, setPacienteQuery] = useState(() => getInitialPacienteQuery(initialData, pacientes));
   const [doctorQuery, setDoctorQuery] = useState(() => getInitialDoctorQuery(initialData, doctores));
   const [isPacienteOpen, setIsPacienteOpen] = useState(false);
@@ -105,6 +113,10 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
       return acc + Number(found?.precio || 0);
     }, 0);
   }, [formData.tratamientos, tratamientos]);
+
+  // Nota: no sincronizamos formData.precio vía setState para evitar renders
+  // encadenados. En lugar de ello, el input mostrará el `computedPrecio` cuando
+  // el usuario no haya editado manualmente el precio.
 
   const filteredPacientes = useMemo(() => {
     const query = normalizeText(pacienteQuery);
@@ -203,6 +215,22 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
   const handleChange = (e) => {
     if (readOnly) return;
     const { name, value } = e.target;
+    // Si el usuario cambia el estado a 'Atendida' y la cita no estaba ya atendida,
+    // abrimos inmediatamente el modal de pago antes de guardar.
+    if (name === 'estado' && String(value) === 'Atendida') {
+      const wasAttended = initialData && String(initialData.estado) === 'Atendida';
+      if (!wasAttended && String(formData.estado) !== 'Atendida') {
+        setPrevEstado(String(formData.estado || 'agendada'));
+        // preasignar estado pero esperar confirmación de pago
+        setFormData(prev => ({ ...prev, [name]: value }));
+        setPaymentMethod('efectivo');
+        setPaymentDetail('');
+        setPaymentErrors({});
+        setIsPaymentModalOpen(true);
+        return;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -255,14 +283,30 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
     e.preventDefault();
     if (readOnly) return;
     if (validateForm()) {
+      // Si cambia a Atendida desde otro estado y aún no tenemos metodo_pago, abrir modal
+      const willAttend = String(formData.estado) === 'Atendida';
+      const wasAttended = initialData && String(initialData.estado) === 'Atendida';
+
+      if (willAttend && !wasAttended && !(formData.metodo_pago || paymentMethod)) {
+        setPaymentErrors({});
+        // Si aún no se han completado los datos de pago mostramos la sección inline
+        setIsPaymentModalOpen(true);
+        return;
+      }
+
       onSubmit({
         ...formData,
         id_doctor: Number(formData.id_doctor),
         tratamientos: (formData.tratamientos || []).map((id) => Number(id)),
-        precio: Number(computedPrecio.toFixed(2))
+        precio: Number(Number((formData.precio !== undefined && formData.precio !== '') ? formData.precio : computedPrecio).toFixed(2)),
+        metodo_pago: formData.metodo_pago || paymentMethod,
+        detalle_pago: formData.detalle_pago || paymentDetail
       });
     }
   };
+
+  // Nota: la sección de pago ahora está integrada inline en el modal; los valores
+  // se sincronizan con `paymentMethod`/`paymentDetail` y se incluyen al enviar.
 
   if (!isOpen) return null;
 
@@ -455,11 +499,19 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
                     type="number"
                     id="precio"
                     name="precio"
-                    value={computedPrecio.toFixed(2)}
+                    value={isPrecioEdited ? formData.precio : computedPrecio.toFixed(2)}
                     step="0.01"
                     min="0"
                     placeholder="0.00"
-                    readOnly
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // marcar como editado sólo si el usuario dejó un valor no vacío
+                      setIsPrecioEdited(String(v).trim() !== '');
+                      setFormData((prev) => ({ ...prev, precio: v }));
+                      if (displayErrors.precio) {
+                        setErrors((prev) => ({ ...prev, precio: '' }));
+                      }
+                    }}
                   />
 
                   <label htmlFor="estado">Estado</label>
@@ -469,18 +521,51 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
                     value={formData.estado}
                     onChange={handleChange}
                   >
-                    <option value="pendiente">Pendiente</option>
+                    <option value="agendada">Agendada</option>
                     <option value="confirmada">Confirmada</option>
                     <option value="Atendida">Atendida</option>
                     <option value="cancelada">Cancelada</option>
                   </select>
+                  {/* Mostrar sección de pago directamente debajo del campo Estado cuando corresponde */}
+                  {!readOnly && isPaymentModalOpen && (
+                    <div className="payment-section" style={{ padding: '1rem', border: '1px solid #eee', borderRadius: '6px', marginTop: '0.75rem' }}>
+                      <h3 style={{ margin: 0, marginBottom: '0.5rem' }}>Registrar pago</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div className="form-group">
+                          <label htmlFor="metodo_pago">Método de pago</label>
+                          <select id="metodo_pago" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '0.5rem' }}>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="tarjeta">Tarjeta</option>
+                          </select>
+                          {paymentErrors.metodo && <span className="error-text">{paymentErrors.metodo}</span>}
+                        </div>
+
+                        <div className="form-group">
+                          <label htmlFor="detalle_pago">Detalle</label>
+                          <textarea id="detalle_pago" rows={3} value={paymentDetail} onChange={(e) => setPaymentDetail(e.target.value)} placeholder="Descripción breve del pago (opcional)" style={{ width: '100%', padding: '0.5rem' }} />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                          {/* Eliminado el botón "Cancelar pago" por petición del usuario; el usuario usa el botón "Guardar" del modal */}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className={readOnly ? 'btn btn-secondary btn-detail-close' : 'btn btn-secondary btn-modal-cancel'}>
+            <button type="button" onClick={() => {
+              // revertir estado y campos de pago al cancelar el modal
+              setFormData((prev) => ({ ...prev, estado: prevEstado, metodo_pago: undefined, detalle_pago: undefined }));
+              setPaymentMethod('efectivo');
+              setPaymentDetail('');
+              setPaymentErrors({});
+              onClose();
+            }} className={readOnly ? 'btn btn-secondary btn-detail-close' : 'btn btn-secondary btn-modal-cancel'}>
               {readOnly ? 'Cerrar' : 'Cancelar'}
             </button>
             {!readOnly && (
@@ -490,6 +575,8 @@ export default function CitaModal({ isOpen, onClose, onSubmit, initialData, isLo
             )}
           </div>
         </form>
+
+        {/* payment section moved to appear below Estado select */}
 
         {!readOnly && isTratamientoSelectorOpen && (
           <div className="modal-overlay modal-overlay--nested" onClick={() => setIsTratamientoSelectorOpen(false)}>

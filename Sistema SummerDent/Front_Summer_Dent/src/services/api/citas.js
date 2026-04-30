@@ -8,7 +8,7 @@ export const fetchCitas = async () => {
     console.error('Error fetching citas:', error);
     throw error;
   }
-};
+}; 
 
 export const fetchCitaById = async (id) => {
   try {

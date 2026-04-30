@@ -26,7 +26,7 @@ const getEstadoBadgeClass = (estado) => {
   switch (estado?.toLowerCase()) {
     case 'confirmada':
       return 'badge-confirmed';
-    case 'pendiente':
+    case 'agendada':
       return 'badge-pending';
     case 'atendida':
       return 'badge-attended';
