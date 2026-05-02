@@ -261,3 +261,53 @@
     flex: 1;
   }
 }
+
+/* Filters box for finance history */
+.finance-history-filters {
+  border: 1px solid #dce5f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.finance-history-filters h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1d3354;
+}
+
+.finance-history-filters .filters-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.finance-history-filters .filters-row--search .search-container {
+  min-width: 0;
+}
+
+/* Keep date inputs compact inside the filters box */
+.finance-history-filters .finance-date-input {
+  max-width: 100%;
+}
+
+/* Make the two date inputs share available space while keeping the button fixed */
+.finance-history-filters .filters-row--date .search-input.finance-date-input {
+  flex: 1 1 0;
+  max-width: none;
+  min-width: 140px;
+}
+
+.finance-history-filters .filters-row--date span {
+  flex: 0 0 auto;
+}
+
+.finance-history-filters .filters-row--date .ui-btn {
+  flex: 0 0 auto;
+}
+
+.finance-history-filters .filters-row--date .search-input {
+  width: auto;
+}

@@ -4,18 +4,21 @@ export default function Button({
   variant = 'primary',
   isBlock = false,
   disabled = false,
-  onClick
+  onClick,
+  className: extraClass = '',
+  ...rest
 }) {
   const className = [
     'ui-btn',
     `ui-btn--${variant}`,
-    isBlock ? 'ui-btn--block' : ''
+    isBlock ? 'ui-btn--block' : '',
+    extraClass
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <button type={type} className={className} disabled={disabled} onClick={onClick}>
+    <button type={type} className={className} disabled={disabled} onClick={onClick} {...rest}>
       {children}
     </button>
   );

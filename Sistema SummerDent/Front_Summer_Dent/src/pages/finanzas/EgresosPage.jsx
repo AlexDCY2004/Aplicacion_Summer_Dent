@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Eye, Edit2, Trash2 } from 'lucide-react';
 import ConfirmModal from '../../components/ui/ConfirmModal';
+import Button from '../../components/ui/Button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createMovimientoFinanzas,
@@ -310,7 +311,7 @@ export default function EgresosPage() {
               onChange={(event) => setHasta(event.target.value)}
               placeholder="Hasta"
             />
-            <button type="button" className="btn btn-secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</button>
+            <Button variant="secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</Button>
           </div>
         </section>
 

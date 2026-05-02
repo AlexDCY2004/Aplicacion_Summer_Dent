@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchMovimientosFinanzas } from '../../services/api/movimientoFinanzas';
 import ErrorState from '../../components/feedback/ErrorState';
+import Button from '../../components/ui/Button';
 
 const PERIODS = {
   diario: 'diario',
@@ -104,7 +105,7 @@ export default function FinancesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
-  const [typeFilter, setTypeFilter] = useState('todos');
+  const [typeFilter] = useState('todos');
   const [metodoFilter, setMetodoFilter] = useState('todos');
 
   const { data: movimientos = [], isLoading, isError, refetch } = useQuery({
@@ -302,8 +303,32 @@ export default function FinancesPage() {
       <section className="finance-history-card">
         <div className="finance-history-card__header">
           <h2>Historial de Movimientos</h2>
-          <div className="finance-filters">
-            <div className="search-container search-container--finance search-container--compact">
+        </div>
+
+        <div className="finance-history-filters">
+          <h3>Filtros de búsqueda</h3>
+
+          <div className="filters-row filters-row--date" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+            <input
+              type="date"
+              className="search-input finance-date-input"
+              value={desde}
+              onChange={(event) => setDesde(event.target.value)}
+              placeholder="Desde"
+            />
+            <span style={{ fontSize: '0.9rem' }}>—</span>
+            <input
+              type="date"
+              className="search-input finance-date-input"
+              value={hasta}
+              onChange={(event) => setHasta(event.target.value)}
+              placeholder="Hasta"
+            />
+            <Button variant="secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</Button>
+          </div>
+
+          <div className="filters-row filters-row--search" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.75rem' }}>
+            <div className="search-container search-container--finance search-container--compact" style={{ flex: 1 }}>
               <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.35-4.35" />
@@ -317,39 +342,11 @@ export default function FinancesPage() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <input
-                type="date"
-                className="search-input finance-date-input"
-                value={desde}
-                onChange={(event) => setDesde(event.target.value)}
-                placeholder="Desde"
-              />
-              <span style={{ fontSize: '0.9rem' }}>—</span>
-              <input
-                type="date"
-                className="search-input finance-date-input"
-                value={hasta}
-                onChange={(event) => setHasta(event.target.value)}
-                placeholder="Hasta"
-              />
-              <button type="button" className="btn btn-secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</button>
-            </div>
-
-            <select
-              className="search-input finance-type-select"
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-            >
-              <option value="todos">Todos</option>
-              <option value="ingreso">Ingresos</option>
-              <option value="egreso">Egresos</option>
-            </select>
             <select
               className="search-input finance-type-select"
               value={metodoFilter}
               onChange={(event) => setMetodoFilter(event.target.value)}
-              style={{ marginLeft: '0.5rem' }}
+              style={{ width: '220px' }}
             >
               <option value="todos">Todos métodos</option>
               <option value="efectivo">Efectivo</option>
@@ -357,6 +354,8 @@ export default function FinancesPage() {
               <option value="tarjeta">Tarjeta</option>
             </select>
           </div>
+
+          
         </div>
 
         <div className="table-container finance-history-table-wrap">
