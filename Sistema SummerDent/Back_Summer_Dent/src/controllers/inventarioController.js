@@ -101,7 +101,7 @@ export const registraMovimientoController = async (req, res) => {
         if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
         const supabaseUser = getSupabaseClientWithToken(token);
 
-        const { id_producto, tipo_movimiento, cantidad } = req.body;
+        const { id_producto, tipo_movimiento, cantidad, metodo_pago, detalle_pago } = req.body;
 
         if (!id_producto) return res.status(400).json({ error: 'id_producto es requerido' });
         const qty = Number(cantidad);
@@ -170,14 +170,32 @@ export const registraMovimientoController = async (req, res) => {
         if (invErr) return res.status(500).json({ error: invErr.message || invErr });
 
         // crear movimiento financiero: tipo 'ingreso', id_doctor NULL (no especificado), descripcion con nombre del producto
+        // validar metodo_pago si fue provisto
+        if (metodo_pago !== undefined && metodo_pago !== null && String(metodo_pago).trim() !== '') {
+            const allowed = ['efectivo', 'transferencia', 'tarjeta'];
+            if (!allowed.includes(String(metodo_pago))) return res.status(400).json({ error: `metodo_pago inválido. Debe ser uno de: ${allowed.join(', ')}` });
+        }
+
+        // Construir descripción incluyendo el detalle de pago (no existe columna detalle_pago)
+        let descripcionBase = `Venta de ${prodData.nombre} (cantidad: ${qty})`;
+        if (detalle_pago !== undefined && detalle_pago !== null && String(detalle_pago).trim() !== '') {
+            descripcionBase = `${descripcionBase} - ${String(detalle_pago).trim()}`;
+        }
+
         const movimientoPayload = {
             id_perfil: perfilId,
             id_doctor: null,
             tipo: 'ingreso',
             monto: totalVenta,
-            descripcion: `Venta de ${prodData.nombre} (cantidad: ${qty})`,
+            descripcion: descripcionBase,
             fecha: today
         };
+        if (metodo_pago !== undefined && metodo_pago !== null && String(metodo_pago).trim() !== '') movimientoPayload.metodo_pago = String(metodo_pago);
+
+        // Si es venta y no hay metodo_pago, usar 'efectivo' por defecto para evitar NOT NULL
+        if (String(tipo_movimiento) === 'salida' && (!movimientoPayload.metodo_pago || String(movimientoPayload.metodo_pago).trim() === '')) {
+            movimientoPayload.metodo_pago = 'efectivo';
+        }
 
         const { data: movData, error: movErr } = await supabaseUser.from('movimiento_finanzas').insert([movimientoPayload]).select().maybeSingle();
         if (movErr) {

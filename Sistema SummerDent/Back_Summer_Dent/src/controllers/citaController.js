@@ -1,6 +1,6 @@
 import { getSupabaseClientWithToken, supabase, supabaseAdmin } from '../configuracionesDB/supabaseClient.js';
 
-const estadosPermitidos = ['pendiente', 'confirmada', 'Atendida', 'cancelada'];
+const estadosPermitidos = ['agendada', 'confirmada', 'Atendida', 'cancelada'];
 
 const esEnteroPositivo = (v) => /^\d+$/.test(String(v || '').trim()) && Number(String(v).trim()) > 0;
 const esCedulaValida = (cedula) => {
@@ -119,7 +119,7 @@ export const crearCitaController = async (req, res) => {
       hora_inicio: String(hora_inicio),
       hora_fin: String(hora_fin),
       precio: typeof precio !== 'undefined' && precio !== null ? precio : (precioCalculado !== null ? precioCalculado : 0),
-      estado: estado ? String(estado) : 'pendiente'
+      estado: estado ? String(estado) : 'agendada'
     };
 
     const { data, error } = await supabaseUser.from('cita').insert([insertObj]).select().maybeSingle();
@@ -245,7 +245,11 @@ export const obtenerCitaPorIdController = async (req, res) => {
     const { id } = req.params;
     if (!esEnteroPositivo(id)) return res.status(400).json({ error: 'El id debe ser un numero entero positivo' });
 
-    const { data, error } = await supabaseUser.from('cita').select('*').eq('id', Number(id)).maybeSingle();
+    const { data, error } = await supabaseUser
+      .from('cita')
+      .select('*')
+      .eq('id', Number(id))
+      .maybeSingle();
     if (error) return res.status(500).json({ error: error.message || error });
     if (!data) return res.status(404).json({ error: 'Cita no encontrada' });
 
@@ -268,7 +272,7 @@ export const actualizarCitaController = async (req, res) => {
       return res.status(400).json({ error: 'El cuerpo de la solicitud debe ser un objeto JSON valido' });
     }
 
-    const camposPermitidos = ['id_paciente', 'id_doctor', 'tratamientos', 'id_perfil', 'fecha', 'hora_inicio', 'hora_fin', 'precio', 'estado'];
+    const camposPermitidos = ['id_paciente', 'id_doctor', 'tratamientos', 'id_perfil', 'fecha', 'hora_inicio', 'hora_fin', 'precio', 'estado', 'metodo_pago', 'detalle_pago'];
     const camposRecibidos = Object.keys(req.body || {});
     if (camposRecibidos.length === 0) return res.status(400).json({ error: 'Debes enviar al menos un campo para actualizar' });
     const camposNoPermitidos = camposRecibidos.filter((c) => !camposPermitidos.includes(c));
@@ -285,7 +289,7 @@ export const actualizarCitaController = async (req, res) => {
     const dbClient = usarAdmin ? supabaseAdmin : supabaseUser;
 
     const updates = {};
-    const { id_paciente, id_doctor, id_tratamiento, tratamientos, id_perfil, fecha, hora_inicio, hora_fin, precio, estado } = req.body;
+    const { id_paciente, id_doctor, id_tratamiento, tratamientos, id_perfil, fecha, hora_inicio, hora_fin, precio, estado, metodo_pago, detalle_pago } = req.body;
 
     if (id_paciente !== undefined) {
       if (!esCedulaValida(id_paciente)) return res.status(400).json({ error: 'id_paciente inválido' });
@@ -310,7 +314,9 @@ export const actualizarCitaController = async (req, res) => {
       }
       const total = tratamientosData.reduce((s, t) => s + Number(t.precio || 0), 0);
       updates.precio = total;
-      updates.id_tratamiento = tratamientos.length === 1 ? Number(tratamientos[0]) : null;
+      // Do not write `id_tratamiento` directly on `cita` because some DB
+      // schemas do not include that column. Use the `cita_tratamiento`
+      // relation table to store treatments (handled below).
     }
     if (id_perfil !== undefined) updates.id_perfil = id_perfil || null;
     if (fecha !== undefined) {
@@ -339,6 +345,15 @@ export const actualizarCitaController = async (req, res) => {
       }
     }
 
+    // aceptar metodo_pago y detalle_pago (opcionales) y validarlos (no escribimos en `cita`, se usan para el movimiento)
+    if (metodo_pago !== undefined) {
+      const allowed = ['efectivo', 'transferencia', 'tarjeta'];
+      if (!allowed.includes(String(metodo_pago))) return res.status(400).json({ error: `metodo_pago inválido. Debe ser uno de: ${allowed.join(', ')}` });
+    }
+    if (detalle_pago !== undefined) {
+      if (detalle_pago !== null && typeof detalle_pago !== 'string') return res.status(400).json({ error: 'detalle_pago debe ser una cadena' });
+    }
+
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No hay campos válidos para actualizar' });
 
     const { data, error } = await dbClient.from('cita').update(updates).eq('id', Number(id)).select().maybeSingle();
@@ -352,7 +367,7 @@ export const actualizarCitaController = async (req, res) => {
         const finClient = supabaseAdmin || supabaseUser;
         const { data: movNull, error: movNullErr } = await finClient
           .from('movimiento_finanzas')
-          .select('id')
+          .select('id, descripcion, metodo_pago')
           .is('id_perfil', null)
           .eq('id_doctor', Number(data.id_doctor))
           .eq('tipo', 'ingreso')
@@ -363,7 +378,32 @@ export const actualizarCitaController = async (req, res) => {
           .maybeSingle();
 
         if (!movNullErr && movNull && movNull.id) {
-          await finClient.from('movimiento_finanzas').update({ id_perfil: perfilId }).eq('id', movNull.id);
+          const updateObj = { id_perfil: perfilId };
+          // asignar metodo_pago y concatenar detalle si fue enviado en la request
+          if (metodo_pago) updateObj.metodo_pago = String(metodo_pago);
+          if (detalle_pago) {
+            const base = movNull.descripcion || '';
+            updateObj.descripcion = base ? `${base} - ${String(detalle_pago)}` : String(detalle_pago);
+          }
+
+          await finClient.from('movimiento_finanzas').update(updateObj).eq('id', movNull.id);
+        } else {
+          // Si no existe el movimiento creado por el trigger, crear uno explícitamente
+          try {
+            const createObj = {
+              id_perfil: perfilId,
+              id_doctor: Number(data.id_doctor),
+              tipo: 'ingreso',
+              monto: Number(data.precio || 0),
+              metodo_pago: metodo_pago || 'efectivo',
+              descripcion: detalle_pago ? String(detalle_pago) : (data.tratamientos ? `consulta de: ${data.tratamientos}` : ''),
+              fecha: new Date().toISOString().slice(0, 10),
+              created_at: new Date().toISOString()
+            };
+            await finClient.from('movimiento_finanzas').insert([createObj]);
+          } catch (e) {
+            // no bloquear flujo principal
+          }
         }
       }
     } catch (e) {
