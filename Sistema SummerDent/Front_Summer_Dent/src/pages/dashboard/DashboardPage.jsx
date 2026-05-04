@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ErrorState from '../../components/feedback/ErrorState';
 import LoadingState from '../../components/feedback/LoadingState';
@@ -29,9 +30,25 @@ const StatIcon = ({ type }) => {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [mode, setMode] = useState('hoy'); // 'hoy' | 'rango' | 'acumulado'
+  const today = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  })();
+  const [desde, setDesde] = useState(today);
+  const [hasta, setHasta] = useState(today);
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['dashboard-snapshot'],
-    queryFn: fetchDashboardSnapshot
+    queryKey: ['dashboard-snapshot', mode, desde, hasta],
+    queryFn: () => {
+      // prepare params based on mode
+      if (mode === 'hoy') return fetchDashboardSnapshot({ desde: today, hasta: today });
+      if (mode === 'rango') return fetchDashboardSnapshot({ desde: desde || undefined, hasta: hasta || undefined });
+      // acumulado
+      return fetchDashboardSnapshot({ hasta: today });
+    }
   });
 
   const currency = new Intl.NumberFormat('es-EC', {
@@ -82,6 +99,19 @@ export default function DashboardPage() {
         <div className="dashboard-title">
           <h1>Dashboard Principal</h1>
           <p>Resumen general del consultorio</p>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className={`seg-btn ${mode === 'hoy' ? 'is-active' : ''}`} onClick={() => { setMode('hoy'); setDesde(today); setHasta(today); }}>Hoy</button>
+            <button className={`seg-btn ${mode === 'rango' ? 'is-active' : ''}`} onClick={() => setMode('rango')}>Rango</button>
+            <button className={`seg-btn ${mode === 'acumulado' ? 'is-active' : ''}`} onClick={() => { setMode('acumulado'); setDesde(''); setHasta(today); }}>Acumulado</button>
+          </div>
+          {mode === 'rango' && (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+              <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -166,7 +196,7 @@ export default function DashboardPage() {
               nextAppointments.map((appointment) => (
                 <div key={appointment.id} className="appointment-item">
                   <div>
-                    <p className="appointment-id">Paciente ID: {appointment.id}</p>
+                    <p className="appointment-id">{appointment.patientName || 'Paciente sin nombre'}</p>
                     <span>
                       {appointment.date} - {appointment.start} a {appointment.end}
                     </span>
@@ -183,21 +213,6 @@ export default function DashboardPage() {
                 </div>
               ))
             )}
-          </div>
-        </article>
-
-        <article className="panel-card">
-          <h3>Resumen Financiero</h3>
-
-          <div className="finance-list">
-            <div className="finance-item finance-item--income">
-              <span>Ingresos del mes</span>
-              <strong>{currency.format(data?.financial?.ingresosMes ?? 0)}</strong>
-            </div>
-            <div className="finance-item finance-item--expense">
-              <span>Egresos del mes</span>
-              <strong>{currency.format(data?.financial?.egresosMes ?? 0)}</strong>
-            </div>
           </div>
         </article>
       </div>

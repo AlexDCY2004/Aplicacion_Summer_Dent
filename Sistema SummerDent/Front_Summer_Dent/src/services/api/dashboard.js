@@ -1,7 +1,13 @@
 import apiClient from './client';
 
-const getToday = () => new Date().toISOString().slice(0, 10);
-const getCurrentMonth = () => getToday().slice(0, 7);
+const getToday = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+//const getCurrentMonth = () => getToday().slice(0, 7);
 
 const toNumber = (value) => {
   const parsed = Number(value);
@@ -17,16 +23,26 @@ const normalizeStatus = (value) => {
 
 const trimTime = (value) => String(value || '').slice(0, 5);
 
-const sumMonthAmount = (rows, monthRef) =>
+/*const sumMonthAmount = (rows, monthRef) =>
   rows
     .filter((item) => String(item?.fecha || '').startsWith(monthRef))
-    .reduce((sum, item) => sum + toNumber(item?.monto), 0);
+    .reduce((sum, item) => sum + toNumber(item?.monto), 0);*/
 
-export async function fetchDashboardSnapshot() {
+export async function fetchDashboardSnapshot(opts = {}) {
+  // opts: { desde, hasta }
+  const { desde, hasta } = opts || {};
+  const qs = (tipo) => {
+    const params = new URLSearchParams();
+    params.set('tipo', tipo);
+    if (desde) params.set('desde', desde);
+    if (hasta) params.set('hasta', hasta);
+    return `?${params.toString()}`;
+  };
+
   const [citasRes, ingresosRes, egresosRes, pacientesRes] = await Promise.allSettled([
     apiClient.get('/api/citas'),
-    apiClient.get('/api/movimientos-finanzas/ingresos'),
-    apiClient.get('/api/movimientos-finanzas/egresos'),
+    apiClient.get(`/api/movimientos-finanzas${qs('ingreso')}`),
+    apiClient.get(`/api/movimientos-finanzas${qs('egreso')}`),
     apiClient.get('/api/pacientes')
   ]);
 
@@ -43,11 +59,10 @@ export async function fetchDashboardSnapshot() {
   );
 
   const today = getToday();
-  const monthRef = getCurrentMonth();
-
   const citasHoy = citas.filter((item) => item?.fecha === today).length;
-  const totalIngresos = sumMonthAmount(ingresos, monthRef);
-  const totalEgresos = sumMonthAmount(egresos, monthRef);
+  // ingresos/egresos already filtered by backend when desde/hasta are provided
+  const totalIngresos = ingresos.reduce((sum, item) => sum + toNumber(item?.monto), 0);
+  const totalEgresos = egresos.reduce((sum, item) => sum + toNumber(item?.monto), 0);
   const balance = totalIngresos - totalEgresos;
 
   const upcomingAppointments = citas

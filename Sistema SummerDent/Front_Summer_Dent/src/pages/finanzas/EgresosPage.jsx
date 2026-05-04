@@ -88,6 +88,7 @@ export default function EgresosPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [metodoPago, setMetodoPago] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEgreso, setSelectedEgreso] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -101,8 +102,8 @@ export default function EgresosPage() {
   const [confirmError, setConfirmError] = useState('');
 
   const { data: egresos = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['egresos', desde, hasta],
-    queryFn: () => fetchEgresos({ desde: desde || undefined, hasta: hasta || undefined })
+    queryKey: ['egresos', desde, hasta, metodoPago],
+    queryFn: () => fetchEgresos({ desde: desde || undefined, hasta: hasta || undefined, metodo_pago: metodoPago || undefined })
   });
 
   const { data: doctores = [], isLoading: isDoctoresLoading } = useQuery({
@@ -134,7 +135,10 @@ export default function EgresosPage() {
       else if (desde) matchesDate = fechaKey >= desde;
       else if (hasta) matchesDate = fechaKey <= hasta;
 
-      return matchesSearch && matchesDate;
+      let matchesMetodo = true;
+      if (metodoPago) matchesMetodo = String(egreso.metodo_pago || '').toLowerCase() === String(metodoPago).toLowerCase();
+
+      return matchesSearch && matchesDate && matchesMetodo;
     });
   }, [desde, hasta, egresos, searchTerm]);
 
@@ -313,9 +317,21 @@ export default function EgresosPage() {
             />
             <Button variant="secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</Button>
           </div>
+
+          <div style={{ marginTop: '0.75rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem' }}>Método de pago</h3>
+            <div style={{ marginTop: '0.5rem' }}>
+              <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="tarjeta">Tarjeta</option>
+              </select>
+            </div>
+          </div>
         </section>
 
-        <section className="finance-total-card finance-total-card--expense">
+        <section className="finance-total-card finance-total-card--expense" style={{ flex: '0 0 30%' }}>
           <span>Total de Egresos</span>
           <strong>{formatCurrency(totalEgresos)}</strong>
         </section>

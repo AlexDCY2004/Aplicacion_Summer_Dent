@@ -109,6 +109,11 @@ export default function InventarioPage() {
   const [pendingMovementQty, setPendingMovementQty] = useState(0);
   const [movementIsSaving, setMovementIsSaving] = useState(false);
   const [movementError, setMovementError] = useState('');
+  const [movementShowPayment, setMovementShowPayment] = useState(false);
+  const [movementMetodoPago, setMovementMetodoPago] = useState('efectivo');
+  const [movementDetallePago, setMovementDetallePago] = useState('');
+  const [movementPaymentErrors, setMovementPaymentErrors] = useState({});
+  const [movementConfirmingSale, setMovementConfirmingSale] = useState(false);
 
   const { data: inventarios = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['inventario'],
@@ -185,16 +190,27 @@ export default function InventarioPage() {
       const qty = Number(pendingMovementQty);
       if (!Number.isFinite(qty) || qty <= 0) throw new Error('Cantidad inválida');
 
-      await registrarMovimientoInventario({
+      const payload = {
         id_producto: pendingMovementInventario.id_producto,
         tipo_movimiento: type,
         cantidad: Math.floor(qty)
-      });
+      };
+      if (type === 'salida' && movementMetodoPago) {
+        payload.metodo_pago = movementMetodoPago;
+        if (movementDetallePago) payload.detalle_pago = movementDetallePago;
+      }
+
+      await registrarMovimientoInventario(payload);
       // After movement, refresh cache from server so DB timestamps are authoritative
       queryClient.invalidateQueries({ queryKey: ['inventario'] });
       setMovementConfirmOpen(false);
       setPendingMovementInventario(null);
       setPendingMovementQty(0);
+      setMovementShowPayment(false);
+      setMovementMetodoPago('efectivo');
+      setMovementDetallePago('');
+      setMovementPaymentErrors({});
+      setMovementConfirmingSale(false);
     } catch (error) {
       const raw = error.response?.data?.error || error.message || '';
       setMovementError(raw || 'No se pudo registrar el movimiento.');
@@ -492,11 +508,43 @@ export default function InventarioPage() {
               style={{ width: '6rem', padding: '0.25rem' }}
             />
           </label>
-          <div className="cm-modal-actions">
-            <button type="button" className="cm-btn" onClick={() => setMovementConfirmOpen(false)} disabled={movementIsSaving}>Cancelar</button>
-            <button type="button" className="cm-btn cm-btn-confirm" onClick={() => confirmMovementAs('salida')} disabled={movementIsSaving}>Salida</button>
-            <button type="button" className="cm-btn cm-btn-cancel" onClick={() => confirmMovementAs('entrada')} disabled={movementIsSaving}>Entrada</button>
-          </div>
+          {!movementConfirmingSale && (
+            <div className="cm-modal-actions">
+              <button type="button" className="cm-btn" onClick={() => { setMovementConfirmOpen(false); setMovementShowPayment(false); setMovementMetodoPago('efectivo'); setMovementDetallePago(''); setMovementConfirmingSale(false); }} disabled={movementIsSaving}>Cancelar</button>
+              <button type="button" className="cm-btn cm-btn-confirm" onClick={() => { setMovementShowPayment(true); setMovementConfirmingSale(true); }} disabled={movementIsSaving}>Venta</button>
+              <button type="button" className="cm-btn cm-btn-cancel" onClick={() => confirmMovementAs('entrada')} disabled={movementIsSaving}>Agregar Stock</button>
+            </div>
+          )}
+
+          {/* Mostrar sección de pago debajo de los botones cuando se solicita Salida */}
+          {movementShowPayment && (
+            <div className="payment-section" style={{ padding: '1rem', border: '1px solid #eee', borderRadius: '6px', marginTop: '0.75rem' }}>
+              <h3 style={{ margin: 0, marginBottom: '0.5rem' }}>Registrar pago</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="form-group">
+                  <label htmlFor="mov_metodo_pago">Método de pago</label>
+                  <select id="mov_metodo_pago" value={movementMetodoPago} onChange={(e) => setMovementMetodoPago(e.target.value)} style={{ width: '100%', padding: '0.5rem' }}>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="tarjeta">Tarjeta</option>
+                  </select>
+                  {movementPaymentErrors.metodo && <span className="error-text">{movementPaymentErrors.metodo}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="mov_detalle_pago">Detalle</label>
+                  <textarea id="mov_detalle_pago" rows={3} value={movementDetallePago} onChange={(e) => setMovementDetallePago(e.target.value)} placeholder="Descripción breve del pago (opcional)" style={{ width: '100%', padding: '0.5rem' }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {movementConfirmingSale && (
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
+              <button type="button" className="cm-btn" onClick={() => { setMovementConfirmingSale(false); setMovementShowPayment(false); setMovementMetodoPago('efectivo'); setMovementDetallePago(''); setMovementPaymentErrors({}); setMovementError(''); }} disabled={movementIsSaving}>Cancelar</button>
+              <button type="button" className="cm-btn cm-btn-confirm" onClick={() => confirmMovementAs('salida')} disabled={movementIsSaving}>Confirmar Venta</button>
+            </div>
+          )}
 
         </div>
       </ConfirmModal>

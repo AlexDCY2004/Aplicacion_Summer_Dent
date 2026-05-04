@@ -83,19 +83,24 @@ export const obtenerMovimientosController = async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
     const supabaseUser = getSupabaseClientWithToken(token);
 
-    const { tipo, desde, hasta, id_doctor, id_perfil } = req.query || {};
+    const { tipo, desde, hasta, id_doctor, id_perfil, metodo_pago } = req.query || {};
 
     // validaciones
     if (tipo !== undefined && tipo !== null && !tipoPermitidos.includes(String(tipo))) return res.status(400).json({ error: `tipo inválido. Debe ser: ${tipoPermitidos.join(', ')}` });
     if (desde !== undefined && desde !== null && !esFechaValida(String(desde))) return res.status(400).json({ error: 'desde inválido, formato YYYY-MM-DD' });
     if (hasta !== undefined && hasta !== null && !esFechaValida(String(hasta))) return res.status(400).json({ error: 'hasta inválido, formato YYYY-MM-DD' });
     if (id_doctor !== undefined && id_doctor !== null && !esEnteroPositivo(id_doctor)) return res.status(400).json({ error: 'id_doctor inválido' });
+    if (metodo_pago !== undefined && metodo_pago !== null && String(metodo_pago).trim() !== '') {
+      const allowedMethods = ['efectivo', 'transferencia', 'tarjeta'];
+      if (!allowedMethods.includes(String(metodo_pago))) return res.status(400).json({ error: `metodo_pago inválido. Debe ser uno de: ${allowedMethods.join(', ')}` });
+    }
 
     let query = supabaseUser.from('movimiento_finanzas').select('*, doctor(*)');
 
     if (tipo) query = query.eq('tipo', String(tipo));
     if (id_doctor) query = query.eq('id_doctor', Number(id_doctor));
     if (id_perfil) query = query.eq('id_perfil', String(id_perfil));
+    if (metodo_pago) query = query.eq('metodo_pago', String(metodo_pago));
     if (desde) query = query.gte('fecha', String(desde));
     if (hasta) query = query.lte('fecha', String(hasta));
 

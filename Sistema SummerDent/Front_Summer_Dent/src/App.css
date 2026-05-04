@@ -93,6 +93,50 @@ p {
   box-shadow: 0 0 0 3px rgba(240, 200, 75, 0.2);
 }
 
+/* Password field with eye toggle */
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 7rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #5f6470;
+}
+
+.password-toggle:hover {
+  color: #10203a;
+}
+
+/* Make sure the eye button does not inherit the primary button styles */
+.login-form-grid .password-toggle {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px !important;
+  margin: 0 !important;
+  height: auto !important;
+  color: #5f6470;
+}
+
+.login-form-grid .password-toggle:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .login-form-grid button {
   margin-top: 0.4rem;
   border: none;

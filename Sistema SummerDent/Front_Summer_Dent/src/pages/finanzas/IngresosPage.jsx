@@ -118,6 +118,7 @@ export default function IngresosPage() {
   //const [dateFilter, setDateFilter] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [metodoPago, setMetodoPago] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIngreso, setSelectedIngreso] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -131,8 +132,8 @@ export default function IngresosPage() {
   const [confirmError, setConfirmError] = useState('');
 
   const { data: ingresos = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['ingresos', desde, hasta],
-    queryFn: () => fetchIngresos({ desde: desde || undefined, hasta: hasta || undefined })
+    queryKey: ['ingresos', desde, hasta, metodoPago],
+    queryFn: () => fetchIngresos({ desde: desde || undefined, hasta: hasta || undefined, metodo_pago: metodoPago || undefined })
   });
 
   const { data: doctores = [], isLoading: isDoctoresLoading } = useQuery({
@@ -176,7 +177,11 @@ export default function IngresosPage() {
       else if (desde) matchesDate = fechaKey >= desde;
       else if (hasta) matchesDate = fechaKey <= hasta;
 
-      return matchesSearch && matchesDate;
+      // metodo_pago filter (server handles it when provided, but keep local fallback)
+      let matchesMetodo = true;
+      if (metodoPago) matchesMetodo = String(ingreso.metodo_pago || '').toLowerCase() === String(metodoPago).toLowerCase();
+
+      return matchesSearch && matchesDate && matchesMetodo;
     });
   }, [desde, hasta, ingresos, searchTerm]);
 
@@ -357,9 +362,21 @@ export default function IngresosPage() {
             />
             <Button variant="secondary" onClick={() => { setDesde(''); setHasta(''); }} style={{ marginLeft: '0.5rem' }}>Limpiar</Button>
           </div>
+
+          <div style={{ marginTop: '0.75rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem' }}>Método de pago</h3>
+            <div style={{ marginTop: '0.5rem' }}>
+              <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="tarjeta">Tarjeta</option>
+              </select>
+            </div>
+          </div>
         </section>
 
-        <section className="finance-total-card finance-total-card--income">
+        <section className="finance-total-card finance-total-card--income" style={{ flex: '0 0 30%' }}>
           <span>Total de Ingresos</span>
           <strong>{formatCurrency(totalIngresos)}</strong>
         </section>
